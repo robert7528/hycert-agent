@@ -1,0 +1,4 @@
+bin/
+*.exe
+agent.yaml
+.env

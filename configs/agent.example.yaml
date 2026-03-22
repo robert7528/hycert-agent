@@ -1,0 +1,14 @@
+server:
+  url: "https://jumper.k00.com.tw/hycert-api"
+  token: "hycert_agt_xxxxx..."     # or use HYCERT_AGENT_TOKEN env
+  insecure_skip_verify: false      # set true for self-signed cert environments
+
+agent:
+  hostname: ""                     # auto-detect from os.Hostname() if empty
+  interval: 3600                   # daemon polling interval (seconds)
+  backup: true
+  backup_dir: "/var/lib/hycert-agent/backups"
+
+log:
+  level: "info"                    # debug / info / warn / error
+  file: ""                         # empty = stdout only
