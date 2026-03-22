@@ -44,6 +44,11 @@ get_jwt() {
 
 check_deps
 
+# Determine hostname (used for token + config)
+DETECTED_HOST=$(hostname)
+read -rp "  Agent hostname [$DETECTED_HOST]: " HOSTNAME_VAL
+HOSTNAME_VAL="${HOSTNAME_VAL:-$DETECTED_HOST}"
+
 echo "=== [1/7] Install binary ==="
 if [ ! -f "$BIN_SRC" ]; then
     die "Binary not found: $BIN_SRC\n  Run 'make build-linux' on dev machine first, then git pull."
@@ -81,7 +86,6 @@ if [ -f "$CONFIG_FILE" ]; then
 fi
 
 if [ -z "${AGENT_TOKEN:-}" ]; then
-    HOSTNAME_VAL=$(hostname)
     info "Creating token for host: $HOSTNAME_VAL"
 
     RESP=$(curl -sf "$HYCERT_API/api/v1/adm/cert/agent-tokens" \
@@ -99,7 +103,6 @@ if [ -z "${AGENT_TOKEN:-}" ]; then
 fi
 
 echo "=== [5/7] Write config ==="
-HOSTNAME_VAL=$(hostname)
 cat > "$CONFIG_FILE" << EOF
 server:
   url: "$HYCERT_API"
