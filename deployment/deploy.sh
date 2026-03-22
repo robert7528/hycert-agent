@@ -49,7 +49,7 @@ fi
 cp "$BIN_SRC" "$BIN_DEST"
 chmod +x "$BIN_DEST"
 info "Installed: $BIN_DEST"
-hycert-agent version
+$BIN_DEST version
 
 echo ""
 echo "=== [2/6] Create directories ==="
@@ -139,10 +139,10 @@ else
     if [[ "$RUN_NOW" =~ ^[Yy] ]]; then
         echo ""
         echo "--- Running hycert-agent ---"
-        hycert-agent run --config "$CONFIG_FILE"
+        $BIN_DEST run --config "$CONFIG_FILE"
         echo ""
         echo "--- Run again to verify idempotency ---"
-        hycert-agent run --config "$CONFIG_FILE"
+        $BIN_DEST run --config "$CONFIG_FILE"
     fi
 fi
 
