@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/hysp/hycert-agent/internal/api"
 	"github.com/hysp/hycert-agent/internal/backup"
@@ -109,5 +110,11 @@ func computeFingerprint(pemData []byte) (string, error) {
 	}
 
 	hash := sha256.Sum256(cert.Raw)
-	return fmt.Sprintf("%X", hash), nil
+	// Format with colons to match hycert-api (e.g. "E8:5F:5E:BD:...")
+	hex := fmt.Sprintf("%X", hash)
+	parts := make([]string, 0, len(hex)/2)
+	for i := 0; i < len(hex); i += 2 {
+		parts = append(parts, hex[i:i+2])
+	}
+	return strings.Join(parts, ":"), nil
 }
