@@ -16,8 +16,8 @@ CONFIG_DIR="/etc/hycert"
 CONFIG_FILE="$CONFIG_DIR/agent.yaml"
 BACKUP_DIR="/var/lib/hycert-agent/backups"
 
-HYADMIN_API="http://127.0.0.1:8080"
-HYCERT_API="http://127.0.0.1:8082"
+HYADMIN_API="http://127.0.0.1/hyadmin-api"
+HYCERT_API="http://127.0.0.1/hycert-api"
 TENANT_CODE="system"
 
 # ─── Helpers ──────────────────────────────────────────────────────────────────
