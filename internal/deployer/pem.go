@@ -88,13 +88,17 @@ func (d *PEMDeployer) Deploy(ctx context.Context, client *api.Client, dep model.
 	return fingerprint, nil
 }
 
-// writeFile ensures parent directory exists and writes data with given permissions.
+// writeFile ensures parent directory exists, writes data, and enforces permissions.
 func writeFile(path string, data []byte, perm os.FileMode) error {
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return fmt.Errorf("create directory %s: %w", dir, err)
 	}
-	return os.WriteFile(path, data, perm)
+	if err := os.WriteFile(path, data, perm); err != nil {
+		return err
+	}
+	// Enforce permissions explicitly (WriteFile won't change existing file perms)
+	return os.Chmod(path, perm)
 }
 
 // computeFingerprint extracts SHA-256 fingerprint from the first PEM certificate.
