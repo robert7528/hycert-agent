@@ -15,6 +15,8 @@ BIN_DEST="/usr/local/bin/hycert-agent"
 CONFIG_DIR="/etc/hycert"
 CONFIG_FILE="$CONFIG_DIR/agent.yaml"
 BACKUP_DIR="/var/lib/hycert-agent/backups"
+SERVICE_NAME="hycert-agent"
+SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}.service"
 
 HYADMIN_API="http://127.0.0.1/hyadmin-api"
 HYCERT_API="http://127.0.0.1/hycert-api"
@@ -42,7 +44,7 @@ get_jwt() {
 
 check_deps
 
-echo "=== [1/6] Install binary ==="
+echo "=== [1/7] Install binary ==="
 if [ ! -f "$BIN_SRC" ]; then
     die "Binary not found: $BIN_SRC\n  Run 'make build-linux' on dev machine first, then git pull."
 fi
@@ -52,13 +54,13 @@ info "Installed: $BIN_DEST"
 $BIN_DEST version
 
 echo ""
-echo "=== [2/6] Create directories ==="
+echo "=== [2/7] Create directories ==="
 mkdir -p "$CONFIG_DIR" "$BACKUP_DIR"
 info "$CONFIG_DIR"
 info "$BACKUP_DIR"
 
 echo ""
-echo "=== [3/6] Login to hyadmin-api ==="
+echo "=== [3/7] Login to hyadmin-api ==="
 read -rp "  Admin username [admin]: " ADMIN_USER
 ADMIN_USER="${ADMIN_USER:-admin}"
 read -rsp "  Admin password: " ADMIN_PASS
@@ -69,7 +71,7 @@ JWT=$(get_jwt "$ADMIN_USER" "$ADMIN_PASS")
 info "Login OK"
 
 echo ""
-echo "=== [4/6] Create Agent Token ==="
+echo "=== [4/7] Create Agent Token ==="
 if [ -f "$CONFIG_FILE" ]; then
     EXISTING_TOKEN=$(grep -oP 'token:\s*"\K[^"]+' "$CONFIG_FILE" 2>/dev/null || true)
     if [ -n "$EXISTING_TOKEN" ] && [ "$EXISTING_TOKEN" != "hycert_agt_xxxxx..." ]; then
@@ -96,7 +98,7 @@ if [ -z "${AGENT_TOKEN:-}" ]; then
     echo ""
 fi
 
-echo "=== [5/6] Write config ==="
+echo "=== [5/7] Write config ==="
 HOSTNAME_VAL=$(hostname)
 cat > "$CONFIG_FILE" << EOF
 server:
@@ -118,7 +120,27 @@ chmod 600 "$CONFIG_FILE"
 info "Config: $CONFIG_FILE"
 
 echo ""
-echo "=== [6/6] Check deployments ==="
+echo "=== [6/7] Install systemd service ==="
+cat > "$SERVICE_FILE" << 'UNIT'
+[Unit]
+Description=HyCert Deployment Agent
+After=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/hycert-agent daemon --config /etc/hycert/agent.yaml
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+systemctl daemon-reload
+systemctl enable "$SERVICE_NAME"
+info "Installed: $SERVICE_FILE"
+
+echo ""
+echo "=== [7/7] Check deployments ==="
 DEPS=$(curl -sf "$HYCERT_API/api/v1/agent/cert/deployments?host=$HOSTNAME_VAL" \
     -H "Authorization: Bearer $AGENT_TOKEN" 2>/dev/null || echo '{"success":false}')
 
@@ -147,12 +169,19 @@ else
 fi
 
 echo ""
-echo "Done."
-echo "  Binary:  $BIN_DEST"
-echo "  Config:  $CONFIG_FILE"
-echo "  Log:     /var/log/hycert-agent.log"
-echo "  Backup:  $BACKUP_DIR"
+echo "=== Starting daemon ==="
+systemctl restart "$SERVICE_NAME"
+systemctl status "$SERVICE_NAME" --no-pager
+
 echo ""
-echo "Usage:"
-echo "  hycert-agent run --config $CONFIG_FILE       # 單次執行"
-echo "  hycert-agent daemon --config $CONFIG_FILE     # 持續輪詢"
+echo "Done."
+echo "  Binary:   $BIN_DEST"
+echo "  Config:   $CONFIG_FILE"
+echo "  Service:  $SERVICE_NAME (daemon mode, interval=${INTERVAL:-3600}s)"
+echo "  Log:      /var/log/hycert-agent.log"
+echo "  Backup:   $BACKUP_DIR"
+echo ""
+echo "Commands:"
+echo "  systemctl status $SERVICE_NAME    # 查看狀態"
+echo "  journalctl -u $SERVICE_NAME -f    # 即時 log"
+echo "  systemctl restart $SERVICE_NAME   # 重啟"
