@@ -46,12 +46,13 @@ get_jwt() {
 
 check_deps
 
-# Determine hostname (used for token + config)
-# Prefer IP address since deployment target_host typically uses IP
-DETECTED_HOST=$(hostname -I 2>/dev/null | awk '{print $1}')
-[ -z "$DETECTED_HOST" ] && DETECTED_HOST=$(hostname)
-read -rp "  Agent name/IP [$DETECTED_HOST]: " HOSTNAME_VAL
-HOSTNAME_VAL="${HOSTNAME_VAL:-$DETECTED_HOST}"
+# Detect IP for hostname (auto)
+DETECTED_IP=$(hostname -I 2>/dev/null | awk '{print $1}')
+[ -z "$DETECTED_IP" ] && DETECTED_IP=$(hostname)
+
+# Agent name (display name for UI)
+read -rp "  Agent display name [$DETECTED_IP]: " AGENT_NAME
+AGENT_NAME="${AGENT_NAME:-$DETECTED_IP}"
 
 echo "=== [1/7] Install binary ==="
 # Stop running daemon before overwriting binary
@@ -96,13 +97,13 @@ if [ -f "$CONFIG_FILE" ]; then
 fi
 
 if [ -z "${AGENT_TOKEN:-}" ]; then
-    info "Creating token for host: $HOSTNAME_VAL"
+    info "Creating token for: $AGENT_NAME"
 
     RESP=$(curl -sf "$HYCERT_API/api/v1/adm/cert/agent-tokens" \
         -H "Authorization: Bearer $JWT" \
         -H "X-Tenant-ID: $TENANT_CODE" \
         -H "Content-Type: application/json" \
-        -d "{\"name\":\"agent-$HOSTNAME_VAL\",\"allowed_hosts\":[\"$HOSTNAME_VAL\"]}")
+        -d "{\"name\":\"agent-$AGENT_NAME\",\"allowed_hosts\":[]}")
 
     AGENT_TOKEN=$(echo "$RESP" | jq -r '.data.token // empty')
     [ -n "$AGENT_TOKEN" ] || die "Failed to create agent token. Response: $RESP"
@@ -120,8 +121,8 @@ server:
   insecure_skip_verify: false
 
 agent:
-  name: "$HOSTNAME_VAL"
-  hostname: "$HOSTNAME_VAL"
+  name: "$AGENT_NAME"
+  hostname: "$DETECTED_IP"
   interval: 3600
   backup: true
   backup_dir: "$BACKUP_DIR"
@@ -155,16 +156,22 @@ info "Installed: $SERVICE_FILE"
 
 echo ""
 echo "=== [7/7] Check deployments ==="
-DEPS=$(curl -sf "$HYCERT_API/api/v1/agent/cert/deployments?host=$HOSTNAME_VAL" \
-    -H "Authorization: Bearer $AGENT_TOKEN" 2>/dev/null || echo '{"success":false}')
+AGENT_UUID=$(cat /etc/hycert/agent-id 2>/dev/null || echo "")
+if [ -n "$AGENT_UUID" ]; then
+    DEPS=$(curl -sf "$HYCERT_API/api/v1/agent/cert/deployments" \
+        -H "Authorization: Bearer $AGENT_TOKEN" \
+        -H "X-Agent-ID: $AGENT_UUID" 2>/dev/null || echo '{"success":false}')
+else
+    DEPS='{"success":true,"data":[]}'
+fi
 
 DEP_COUNT=$(echo "$DEPS" | jq '.data | length // 0' 2>/dev/null || echo 0)
-info "Found $DEP_COUNT deployment(s) for host $HOSTNAME_VAL"
+info "Found $DEP_COUNT deployment(s) for agent $AGENT_NAME"
 
 if [ "$DEP_COUNT" -eq 0 ]; then
     echo ""
     echo "  !! 尚無 deployment 資料 !!"
-    echo "  !! 請先在 hycert UI 建立 deployment（target_host=$HOSTNAME_VAL, target_service=nginx）!!"
+    echo "  !! 請先在 hycert UI 建立 deployment 並綁定此 Agent !!"
     echo "  !! 建立後再執行: hycert-agent run --config $CONFIG_FILE !!"
     echo ""
 else
