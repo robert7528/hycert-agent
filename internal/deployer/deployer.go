@@ -31,8 +31,8 @@ func Get(service string, backupEnabled bool, backupDir string) (Deployer, error)
 }
 
 func init() {
-	// PEM deployer: cert + key as separate files (nginx, apache)
-	for _, svc := range []string{"nginx", "apache"} {
+	// PEM deployer: cert + key as separate files (nginx, apache, hyproxy)
+	for _, svc := range []string{"nginx", "apache", "hyproxy"} {
 		svc := svc
 		_ = svc
 		Register(svc, func(backupEnabled bool, backupDir string) Deployer {
@@ -40,8 +40,8 @@ func init() {
 		})
 	}
 
-	// PEM combined deployer: cert+key in single file (haproxy, hyproxy)
-	for _, svc := range []string{"haproxy", "hyproxy"} {
+	// PEM combined deployer: cert+key in single file (haproxy)
+	for _, svc := range []string{"haproxy"} {
 		svc := svc
 		_ = svc
 		Register(svc, func(backupEnabled bool, backupDir string) Deployer {
