@@ -122,7 +122,6 @@ server:
 
 agent:
   name: "$AGENT_NAME"
-  hostname: "$DETECTED_IP"
   interval: 3600
   backup: true
   backup_dir: "$BACKUP_DIR"
