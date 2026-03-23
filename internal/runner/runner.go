@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net"
 	"runtime"
+	"strings"
 	"time"
 
 	"github.com/hysp/hycert-agent/internal/api"
@@ -156,16 +157,33 @@ func (r *Runner) Register(ctx context.Context) error {
 	return nil
 }
 
-// getLocalIPs returns non-loopback IPv4 addresses.
+// getLocalIPs returns non-loopback, non-virtual IPv4 addresses.
+// Filters out container/bridge interfaces (docker, podman, veth, br-, virbr).
 func getLocalIPs() []string {
 	var ips []string
-	addrs, err := net.InterfaceAddrs()
+	ifaces, err := net.Interfaces()
 	if err != nil {
 		return ips
 	}
-	for _, addr := range addrs {
-		if ipnet, ok := addr.(*net.IPNet); ok && !ipnet.IP.IsLoopback() && ipnet.IP.To4() != nil {
-			ips = append(ips, ipnet.IP.String())
+	for _, iface := range ifaces {
+		// Skip down, loopback, and virtual interfaces
+		if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 {
+			continue
+		}
+		name := strings.ToLower(iface.Name)
+		if strings.HasPrefix(name, "docker") || strings.HasPrefix(name, "br-") ||
+			strings.HasPrefix(name, "veth") || strings.HasPrefix(name, "virbr") ||
+			strings.HasPrefix(name, "podman") || strings.HasPrefix(name, "cni") {
+			continue
+		}
+		addrs, err := iface.Addrs()
+		if err != nil {
+			continue
+		}
+		for _, addr := range addrs {
+			if ipnet, ok := addr.(*net.IPNet); ok && ipnet.IP.To4() != nil {
+				ips = append(ips, ipnet.IP.String())
+			}
 		}
 	}
 	return ips
