@@ -45,7 +45,7 @@ func (d *PEMCombinedDeployer) Deploy(ctx context.Context, client *api.Client, de
 
 	// Backup existing file (per-deployment subdirectory)
 	if d.BackupEnabled {
-		backupDir := filepath.Join(d.BackupDir, fmt.Sprintf("deploy-%d", dep.ID))
+		backupDir := filepath.Join(d.BackupDir, fmt.Sprintf("%s-%d", dep.TargetService, dep.ID))
 		if _, err := backup.File(detail.CertPath, backupDir); err != nil {
 			return "", fmt.Errorf("backup cert: %w", err)
 		}
