@@ -29,6 +29,11 @@ func New(cfg *config.Config, client *api.Client, logger *slog.Logger, version st
 
 // RunOnce executes a single check-and-deploy cycle.
 func (r *Runner) RunOnce(ctx context.Context) {
+	// Register/heartbeat: update last_seen_at on every cycle
+	if err := r.Register(ctx); err != nil {
+		r.logger.Warn("registration failed", "error", err)
+	}
+
 	r.logger.Info("checking deployments", "agent_id", r.cfg.Agent.AgentID)
 
 	deployments, err := r.client.GetDeployments()

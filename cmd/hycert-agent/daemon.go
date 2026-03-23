@@ -47,12 +47,7 @@ func daemonCmd() *cobra.Command {
 			sigCh := make(chan os.Signal, 1)
 			signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 
-			// Register agent
-			if err := r.Register(ctx); err != nil {
-				logger.Error("registration failed (continuing anyway)", "error", err)
-			}
-
-			// Run immediately on start
+			// Run immediately on start (includes registration)
 			r.RunOnce(ctx)
 
 			ticker := time.NewTicker(interval)

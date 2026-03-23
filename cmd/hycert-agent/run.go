@@ -32,10 +32,6 @@ func runCmd() *cobra.Command {
 
 			client := api.NewClient(cfg.Server.URL, cfg.Server.Token, cfg.Agent.AgentID, cfg.Server.InsecureSkipVerify)
 			r := runner.New(cfg, client, logger, version)
-
-			if err := r.Register(context.Background()); err != nil {
-				logger.Error("registration failed (continuing anyway)", "error", err)
-			}
 			r.RunOnce(context.Background())
 			return nil
 		},
