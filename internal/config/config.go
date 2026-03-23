@@ -28,8 +28,12 @@ type AgentConfig struct {
 }
 
 type LogConfig struct {
-	Level string `mapstructure:"level"`
-	File  string `mapstructure:"file"`
+	Level      string `mapstructure:"level"`
+	File       string `mapstructure:"file"`
+	MaxSize    int    `mapstructure:"max_size"`    // MB per file before rotation
+	MaxBackups int    `mapstructure:"max_backups"` // number of old files to keep
+	MaxAge     int    `mapstructure:"max_age"`     // days to retain old files
+	Compress   bool   `mapstructure:"compress"`    // gzip old files
 }
 
 // Load reads config from file and env overrides.
@@ -40,6 +44,10 @@ func Load(cfgFile string) (*Config, error) {
 	v.SetDefault("agent.interval", 3600)
 	v.SetDefault("agent.backup", true)
 	v.SetDefault("log.level", "info")
+	v.SetDefault("log.max_size", 10)
+	v.SetDefault("log.max_backups", 3)
+	v.SetDefault("log.max_age", 30)
+	v.SetDefault("log.compress", true)
 
 	if cfgFile != "" {
 		v.SetConfigFile(cfgFile)

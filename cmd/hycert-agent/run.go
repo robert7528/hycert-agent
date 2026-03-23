@@ -2,10 +2,13 @@ package main
 
 import (
 	"context"
+	"io"
 	"log/slog"
 	"os"
+	"path/filepath"
 
 	"github.com/spf13/cobra"
+	"gopkg.in/natefinch/lumberjack.v2"
 
 	"github.com/hysp/hycert-agent/internal/api"
 	"github.com/hysp/hycert-agent/internal/config"
@@ -51,13 +54,22 @@ func setupLogger(cfg *config.Config) *slog.Logger {
 	opts := &slog.HandlerOptions{Level: level}
 
 	if cfg.Log.File != "" {
-		f, err := os.OpenFile(cfg.Log.File, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
-		if err != nil {
-			slog.Error("failed to open log file, falling back to stdout", "error", err)
-			return slog.New(slog.NewTextHandler(os.Stdout, opts))
+		// Ensure log directory exists
+		if dir := filepath.Dir(cfg.Log.File); dir != "" {
+			os.MkdirAll(dir, 0755)
 		}
-		// Write to both stdout and file
-		return slog.New(slog.NewTextHandler(f, opts))
+
+		lj := &lumberjack.Logger{
+			Filename:   cfg.Log.File,
+			MaxSize:    cfg.Log.MaxSize,
+			MaxBackups: cfg.Log.MaxBackups,
+			MaxAge:     cfg.Log.MaxAge,
+			Compress:   cfg.Log.Compress,
+		}
+
+		// Write to both file and stdout
+		w := io.MultiWriter(lj, os.Stdout)
+		return slog.New(slog.NewTextHandler(w, opts))
 	}
 
 	return slog.New(slog.NewTextHandler(os.Stdout, opts))

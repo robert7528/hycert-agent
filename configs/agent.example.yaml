@@ -12,3 +12,7 @@ agent:
 log:
   level: "info"                    # debug / info / warn / error
   file: "/var/log/hycert-agent/agent.log"  # empty = stdout only
+  max_size: 10                     # MB per file before rotation
+  max_backups: 3                   # number of old files to keep
+  max_age: 30                      # days to retain old files
+  compress: true                   # gzip compress rotated files
