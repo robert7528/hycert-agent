@@ -4,7 +4,9 @@ server:
   insecure_skip_verify: false      # set true for self-signed cert environments
 
 agent:
-  hostname: ""                     # auto-detect from os.Hostname() if empty
+  agent_id: ""                     # auto-generated UUID on first run
+  name: ""                         # display name (defaults to hostname)
+  hostname: ""                     # auto-detect if empty
   interval: 3600                   # daemon polling interval (seconds)
   backup: true
   backup_dir: "/var/lib/hycert-agent/backups"

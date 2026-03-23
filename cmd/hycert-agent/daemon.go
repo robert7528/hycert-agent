@@ -29,11 +29,12 @@ func daemonCmd() *cobra.Command {
 				logger.Warn("TLS verification disabled (insecure_skip_verify=true)")
 			}
 
-			client := api.NewClient(cfg.Server.URL, cfg.Server.Token, cfg.Server.InsecureSkipVerify)
-			r := runner.New(cfg, client, logger)
+			client := api.NewClient(cfg.Server.URL, cfg.Server.Token, cfg.Agent.AgentID, cfg.Server.InsecureSkipVerify)
+			r := runner.New(cfg, client, logger, version)
 
 			interval := time.Duration(cfg.Agent.Interval) * time.Second
 			logger.Info("daemon starting",
+				"agent_id", cfg.Agent.AgentID,
 				"hostname", cfg.Agent.Hostname,
 				"interval", interval.String(),
 				"server", cfg.Server.URL,
@@ -45,6 +46,11 @@ func daemonCmd() *cobra.Command {
 			// Graceful shutdown
 			sigCh := make(chan os.Signal, 1)
 			signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+
+			// Register agent
+			if err := r.Register(ctx); err != nil {
+				logger.Error("registration failed (continuing anyway)", "error", err)
+			}
 
 			// Run immediately on start
 			r.RunOnce(ctx)

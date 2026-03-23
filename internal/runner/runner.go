@@ -2,7 +2,10 @@ package runner
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
+	"net"
+	"runtime"
 	"time"
 
 	"github.com/hysp/hycert-agent/internal/api"
@@ -13,21 +16,22 @@ import (
 
 // Runner orchestrates the agent check-and-deploy cycle.
 type Runner struct {
-	cfg    *config.Config
-	client *api.Client
-	logger *slog.Logger
+	cfg     *config.Config
+	client  *api.Client
+	logger  *slog.Logger
+	version string
 }
 
 // New creates a Runner.
-func New(cfg *config.Config, client *api.Client, logger *slog.Logger) *Runner {
-	return &Runner{cfg: cfg, client: client, logger: logger}
+func New(cfg *config.Config, client *api.Client, logger *slog.Logger, version string) *Runner {
+	return &Runner{cfg: cfg, client: client, logger: logger, version: version}
 }
 
 // RunOnce executes a single check-and-deploy cycle.
 func (r *Runner) RunOnce(ctx context.Context) {
-	r.logger.Info("checking deployments", "hostname", r.cfg.Agent.Hostname)
+	r.logger.Info("checking deployments", "agent_id", r.cfg.Agent.AgentID)
 
-	deployments, err := r.client.GetDeployments(r.cfg.Agent.Hostname)
+	deployments, err := r.client.GetDeployments()
 	if err != nil {
 		r.logger.Error("failed to get deployments", "error", err)
 		return
@@ -122,4 +126,41 @@ func (r *Runner) reportFailure(deployID uint, deployErr error, start time.Time, 
 	}); err != nil {
 		log.Error("failed to report failure", "error", err)
 	}
+}
+
+// Register sends agent registration to the server. Called on every startup (upsert).
+func (r *Runner) Register(ctx context.Context) error {
+	req := model.RegisterRequest{
+		AgentID:     r.cfg.Agent.AgentID,
+		Name:        r.cfg.Agent.Name,
+		Hostname:    r.cfg.Agent.Hostname,
+		IPAddresses: getLocalIPs(),
+		OS:          runtime.GOOS,
+		Version:     r.version,
+	}
+	resp, err := r.client.Register(req)
+	if err != nil {
+		return fmt.Errorf("agent registration failed: %w", err)
+	}
+	r.logger.Info("agent registered",
+		"agent_id", resp.AgentID,
+		"name", resp.Name,
+		"status", resp.Status,
+	)
+	return nil
+}
+
+// getLocalIPs returns non-loopback IPv4 addresses.
+func getLocalIPs() []string {
+	var ips []string
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		return ips
+	}
+	for _, addr := range addrs {
+		if ipnet, ok := addr.(*net.IPNet); ok && !ipnet.IP.IsLoopback() && ipnet.IP.To4() != nil {
+			ips = append(ips, ipnet.IP.String())
+		}
+	}
+	return ips
 }

@@ -50,7 +50,7 @@ check_deps
 # Prefer IP address since deployment target_host typically uses IP
 DETECTED_HOST=$(hostname -I 2>/dev/null | awk '{print $1}')
 [ -z "$DETECTED_HOST" ] && DETECTED_HOST=$(hostname)
-read -rp "  Agent hostname/IP [$DETECTED_HOST]: " HOSTNAME_VAL
+read -rp "  Agent name/IP [$DETECTED_HOST]: " HOSTNAME_VAL
 HOSTNAME_VAL="${HOSTNAME_VAL:-$DETECTED_HOST}"
 
 echo "=== [1/7] Install binary ==="
@@ -120,6 +120,7 @@ server:
   insecure_skip_verify: false
 
 agent:
+  name: "$HOSTNAME_VAL"
   hostname: "$HOSTNAME_VAL"
   interval: 3600
   backup: true

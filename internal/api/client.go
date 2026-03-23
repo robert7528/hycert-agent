@@ -18,11 +18,12 @@ import (
 type Client struct {
 	baseURL    string
 	token      string
+	agentID    string
 	httpClient *http.Client
 }
 
 // NewClient creates an API client.
-func NewClient(baseURL, token string, insecureSkipVerify bool) *Client {
+func NewClient(baseURL, token, agentID string, insecureSkipVerify bool) *Client {
 	transport := &http.Transport{}
 	if insecureSkipVerify {
 		transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
@@ -30,6 +31,7 @@ func NewClient(baseURL, token string, insecureSkipVerify bool) *Client {
 	return &Client{
 		baseURL: strings.TrimRight(baseURL, "/"),
 		token:   token,
+		agentID: agentID,
 		httpClient: &http.Client{
 			Timeout:   30 * time.Second,
 			Transport: transport,
@@ -37,9 +39,9 @@ func NewClient(baseURL, token string, insecureSkipVerify bool) *Client {
 	}
 }
 
-// GetDeployments fetches deployments for a given hostname.
-func (c *Client) GetDeployments(hostname string) ([]model.AgentDeployment, error) {
-	u := fmt.Sprintf("%s/api/v1/agent/cert/deployments?host=%s", c.baseURL, url.QueryEscape(hostname))
+// GetDeployments fetches deployments assigned to this agent (identified by X-Agent-ID header).
+func (c *Client) GetDeployments() ([]model.AgentDeployment, error) {
+	u := fmt.Sprintf("%s/api/v1/agent/cert/deployments", c.baseURL)
 
 	var resp model.APIResponse[[]model.AgentDeployment]
 	if err := c.doJSON("GET", u, nil, &resp); err != nil {
@@ -49,6 +51,25 @@ func (c *Client) GetDeployments(hostname string) ([]model.AgentDeployment, error
 		return nil, c.apiError(resp.Error)
 	}
 	return resp.Data, nil
+}
+
+// Register sends the agent registration to the server (upsert).
+func (c *Client) Register(req model.RegisterRequest) (*model.RegisterResponse, error) {
+	u := fmt.Sprintf("%s/api/v1/agent/cert/register", c.baseURL)
+
+	body, err := json.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("marshal request: %w", err)
+	}
+
+	var resp model.APIResponse[model.RegisterResponse]
+	if err := c.doJSON("POST", u, body, &resp); err != nil {
+		return nil, err
+	}
+	if !resp.Success {
+		return nil, c.apiError(resp.Error)
+	}
+	return &resp.Data, nil
 }
 
 // DownloadOptions holds query parameters for certificate download.
@@ -106,6 +127,9 @@ func (c *Client) doJSON(method, url string, body []byte, result any) error {
 	}
 
 	req.Header.Set("Authorization", "Bearer "+c.token)
+	if c.agentID != "" {
+		req.Header.Set("X-Agent-ID", c.agentID)
+	}
 	req.Header.Set("Accept", "application/json")
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")

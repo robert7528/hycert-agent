@@ -11,6 +11,7 @@ type AgentDeployment struct {
 	DeployStatus    string `json:"deploy_status"`
 	LastFingerprint string `json:"last_fingerprint"`
 	CertFingerprint string `json:"cert_fingerprint"`
+	AgentID         string `json:"agent_id,omitempty"`
 }
 
 // TargetDetail is the parsed target_detail JSON for PEM-based services.
@@ -49,4 +50,22 @@ type APIResponse[T any] struct {
 type APIError struct {
 	Code    string `json:"code"`
 	Message string `json:"message"`
+}
+
+// RegisterRequest is sent on agent startup to register with the server.
+type RegisterRequest struct {
+	AgentID     string   `json:"agent_id"`
+	Name        string   `json:"name"`
+	Hostname    string   `json:"hostname"`
+	IPAddresses []string `json:"ip_addresses,omitempty"`
+	OS          string   `json:"os,omitempty"`
+	Version     string   `json:"version,omitempty"`
+}
+
+// RegisterResponse is the server's response to a registration request.
+type RegisterResponse struct {
+	ID      uint   `json:"id"`
+	AgentID string `json:"agent_id"`
+	Name    string `json:"name"`
+	Status  string `json:"status"`
 }

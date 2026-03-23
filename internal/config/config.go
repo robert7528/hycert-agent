@@ -3,8 +3,11 @@ package config
 import (
 	"fmt"
 	"os"
+	"path/filepath"
+	"runtime"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/spf13/viper"
 )
 
@@ -21,6 +24,8 @@ type ServerConfig struct {
 }
 
 type AgentConfig struct {
+	AgentID   string `mapstructure:"agent_id"`
+	Name      string `mapstructure:"name"`
 	Hostname  string `mapstructure:"hostname"`
 	Interval  int    `mapstructure:"interval"`
 	Backup    bool   `mapstructure:"backup"`
@@ -98,5 +103,36 @@ func Load(cfgFile string) (*Config, error) {
 		cfg.Agent.Hostname = h
 	}
 
+	// Auto-generate agent_id if not set
+	if cfg.Agent.AgentID == "" {
+		idFile := agentIDFilePath(cfgFile)
+		data, err := os.ReadFile(idFile)
+		if err == nil && len(data) > 0 {
+			cfg.Agent.AgentID = strings.TrimSpace(string(data))
+		} else {
+			cfg.Agent.AgentID = uuid.New().String()
+			os.MkdirAll(filepath.Dir(idFile), 0755)
+			os.WriteFile(idFile, []byte(cfg.Agent.AgentID), 0600)
+		}
+	}
+
+	// Auto-detect name from hostname if not set
+	if cfg.Agent.Name == "" {
+		cfg.Agent.Name = cfg.Agent.Hostname
+	}
+
 	return &cfg, nil
+}
+
+// agentIDFilePath returns the path to the persistent agent-id file.
+// On Linux: /etc/hycert/agent-id
+// On Windows: next to config file, or C:\hycert\agent-id
+func agentIDFilePath(cfgFile string) string {
+	if cfgFile != "" {
+		return filepath.Join(filepath.Dir(cfgFile), "agent-id")
+	}
+	if runtime.GOOS == "windows" {
+		return `C:\hycert\agent-id`
+	}
+	return "/etc/hycert/agent-id"
 }
