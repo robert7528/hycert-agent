@@ -55,6 +55,11 @@ read -rp "  Agent hostname/IP [$DETECTED_HOST]: " HOSTNAME_VAL
 HOSTNAME_VAL="${HOSTNAME_VAL:-$DETECTED_HOST}"
 
 echo "=== [1/8] Install binary ==="
+# Stop running daemon before overwriting binary
+if systemctl is-active "$SERVICE_NAME" &>/dev/null; then
+    info "Stopping running $SERVICE_NAME..."
+    systemctl stop "$SERVICE_NAME"
+fi
 if [ ! -f "$BIN_SRC" ]; then
     die "Binary not found: $BIN_SRC\n  Run 'make build-linux' on dev machine first, then git pull."
 fi
