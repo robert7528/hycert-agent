@@ -48,4 +48,13 @@ func init() {
 			return &PEMCombinedDeployer{BackupEnabled: backupEnabled, BackupDir: backupDir}
 		})
 	}
+
+	// JKS deployer: Java keystore (tomcat)
+	for _, svc := range []string{"tomcat"} {
+		svc := svc
+		_ = svc
+		Register(svc, func(backupEnabled bool, backupDir string) Deployer {
+			return &JKSDeployer{BackupEnabled: backupEnabled, BackupDir: backupDir}
+		})
+	}
 }

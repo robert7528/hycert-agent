@@ -76,6 +76,8 @@ func (c *Client) Register(req model.RegisterRequest) (*model.RegisterResponse, e
 type DownloadOptions struct {
 	Format     string
 	IncludeKey bool
+	Password   string
+	Alias      string
 }
 
 // DownloadCert downloads a certificate in the specified format.
@@ -84,6 +86,12 @@ func (c *Client) DownloadCert(certID uint, opts DownloadOptions) (*model.Downloa
 		c.baseURL, certID, url.QueryEscape(opts.Format))
 	if opts.IncludeKey {
 		u += "&include_key=true"
+	}
+	if opts.Password != "" {
+		u += "&password=" + url.QueryEscape(opts.Password)
+	}
+	if opts.Alias != "" {
+		u += "&alias=" + url.QueryEscape(opts.Alias)
 	}
 
 	var resp model.APIResponse[model.DownloadResult]

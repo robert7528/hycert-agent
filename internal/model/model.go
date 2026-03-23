@@ -14,11 +14,13 @@ type AgentDeployment struct {
 	AgentID         string `json:"agent_id,omitempty"`
 }
 
-// TargetDetail is the parsed target_detail JSON for PEM-based services.
+// TargetDetail is the parsed target_detail JSON for deployment services.
 type TargetDetail struct {
 	OS        string `json:"os"`
 	CertPath  string `json:"cert_path"`
 	KeyPath   string `json:"key_path"`
+	Password  string `json:"password,omitempty"`  // JKS/PFX keystore password
+	Alias     string `json:"alias,omitempty"`     // JKS key alias
 	ReloadCmd string `json:"reload_cmd"`
 }
 
