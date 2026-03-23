@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"path/filepath"
 
 	"github.com/hysp/hycert-agent/internal/api"
 	"github.com/hysp/hycert-agent/internal/backup"
@@ -42,9 +43,10 @@ func (d *PEMCombinedDeployer) Deploy(ctx context.Context, client *api.Client, de
 		return "", fmt.Errorf("compute fingerprint: %w", err)
 	}
 
-	// Backup existing file
+	// Backup existing file (per-deployment subdirectory)
 	if d.BackupEnabled {
-		if _, err := backup.File(detail.CertPath, d.BackupDir); err != nil {
+		backupDir := filepath.Join(d.BackupDir, fmt.Sprintf("deploy-%d", dep.ID))
+		if _, err := backup.File(detail.CertPath, backupDir); err != nil {
 			return "", fmt.Errorf("backup cert: %w", err)
 		}
 	}

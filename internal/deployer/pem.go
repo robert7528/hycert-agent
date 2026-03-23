@@ -54,13 +54,14 @@ func (d *PEMDeployer) Deploy(ctx context.Context, client *api.Client, dep model.
 		return "", fmt.Errorf("compute fingerprint: %w", err)
 	}
 
-	// Backup existing files
+	// Backup existing files (per-deployment subdirectory)
 	if d.BackupEnabled {
-		if _, err := backup.File(detail.CertPath, d.BackupDir); err != nil {
+		backupDir := filepath.Join(d.BackupDir, fmt.Sprintf("deploy-%d", dep.ID))
+		if _, err := backup.File(detail.CertPath, backupDir); err != nil {
 			return "", fmt.Errorf("backup cert: %w", err)
 		}
 		if detail.KeyPath != "" {
-			if _, err := backup.File(detail.KeyPath, d.BackupDir); err != nil {
+			if _, err := backup.File(detail.KeyPath, backupDir); err != nil {
 				return "", fmt.Errorf("backup key: %w", err)
 			}
 		}
