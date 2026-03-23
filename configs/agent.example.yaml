@@ -11,4 +11,4 @@ agent:
 
 log:
   level: "info"                    # debug / info / warn / error
-  file: ""                         # empty = stdout only
+  file: "/var/log/hycert-agent/agent.log"  # empty = stdout only

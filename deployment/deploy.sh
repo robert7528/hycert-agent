@@ -15,8 +15,11 @@ BIN_DEST="/usr/local/bin/hycert-agent"
 CONFIG_DIR="/etc/hycert"
 CONFIG_FILE="$CONFIG_DIR/agent.yaml"
 BACKUP_DIR="/var/lib/hycert-agent/backups"
+LOG_DIR="/var/log/hycert-agent"
+LOG_FILE="$LOG_DIR/agent.log"
 SERVICE_NAME="hycert-agent"
 SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}.service"
+LOGROTATE_FILE="/etc/logrotate.d/hycert-agent"
 
 HYADMIN_API="http://127.0.0.1/hyadmin-api"
 HYCERT_API="http://127.0.0.1/hycert-api"
@@ -51,7 +54,7 @@ DETECTED_HOST=$(hostname -I 2>/dev/null | awk '{print $1}')
 read -rp "  Agent hostname/IP [$DETECTED_HOST]: " HOSTNAME_VAL
 HOSTNAME_VAL="${HOSTNAME_VAL:-$DETECTED_HOST}"
 
-echo "=== [1/7] Install binary ==="
+echo "=== [1/8] Install binary ==="
 if [ ! -f "$BIN_SRC" ]; then
     die "Binary not found: $BIN_SRC\n  Run 'make build-linux' on dev machine first, then git pull."
 fi
@@ -61,13 +64,14 @@ info "Installed: $BIN_DEST"
 $BIN_DEST version
 
 echo ""
-echo "=== [2/7] Create directories ==="
-mkdir -p "$CONFIG_DIR" "$BACKUP_DIR"
+echo "=== [2/8] Create directories ==="
+mkdir -p "$CONFIG_DIR" "$BACKUP_DIR" "$LOG_DIR"
 info "$CONFIG_DIR"
 info "$BACKUP_DIR"
+info "$LOG_DIR"
 
 echo ""
-echo "=== [3/7] Login to hyadmin-api ==="
+echo "=== [3/8] Login to hyadmin-api ==="
 read -rp "  Admin username [admin]: " ADMIN_USER
 ADMIN_USER="${ADMIN_USER:-admin}"
 read -rsp "  Admin password: " ADMIN_PASS
@@ -78,7 +82,7 @@ JWT=$(get_jwt "$ADMIN_USER" "$ADMIN_PASS")
 info "Login OK"
 
 echo ""
-echo "=== [4/7] Create Agent Token ==="
+echo "=== [4/8] Create Agent Token ==="
 if [ -f "$CONFIG_FILE" ]; then
     EXISTING_TOKEN=$(grep -oP 'token:\s*"\K[^"]+' "$CONFIG_FILE" 2>/dev/null || true)
     if [ -n "$EXISTING_TOKEN" ] && [ "$EXISTING_TOKEN" != "hycert_agt_xxxxx..." ]; then
@@ -104,7 +108,7 @@ if [ -z "${AGENT_TOKEN:-}" ]; then
     echo ""
 fi
 
-echo "=== [5/7] Write config ==="
+echo "=== [5/8] Write config ==="
 cat > "$CONFIG_FILE" << EOF
 server:
   url: "$HYCERT_API"
@@ -119,13 +123,27 @@ agent:
 
 log:
   level: "debug"
-  file: "/var/log/hycert-agent.log"
+  file: "$LOG_FILE"
 EOF
 chmod 600 "$CONFIG_FILE"
 info "Config: $CONFIG_FILE"
 
 echo ""
-echo "=== [6/7] Install systemd service ==="
+echo "=== [6/8] Install logrotate ==="
+cat > "$LOGROTATE_FILE" << 'LOGROTATE'
+/var/log/hycert-agent/agent.log {
+    daily
+    rotate 30
+    compress
+    missingok
+    notifempty
+    copytruncate
+}
+LOGROTATE
+info "Installed: $LOGROTATE_FILE (daily, 30 days, compressed)"
+
+echo ""
+echo "=== [7/8] Install systemd service ==="
 cat > "$SERVICE_FILE" << 'UNIT'
 [Unit]
 Description=HyCert Deployment Agent
@@ -145,7 +163,7 @@ systemctl enable "$SERVICE_NAME"
 info "Installed: $SERVICE_FILE"
 
 echo ""
-echo "=== [7/7] Check deployments ==="
+echo "=== [8/8] Check deployments ==="
 DEPS=$(curl -sf "$HYCERT_API/api/v1/agent/cert/deployments?host=$HOSTNAME_VAL" \
     -H "Authorization: Bearer $AGENT_TOKEN" 2>/dev/null || echo '{"success":false}')
 
@@ -183,7 +201,7 @@ echo "Done."
 echo "  Binary:   $BIN_DEST"
 echo "  Config:   $CONFIG_FILE"
 echo "  Service:  $SERVICE_NAME (daemon mode, interval=${INTERVAL:-3600}s)"
-echo "  Log:      /var/log/hycert-agent.log"
+echo "  Log:      $LOG_FILE (logrotate: daily, 30 days)"
 echo "  Backup:   $BACKUP_DIR"
 echo ""
 echo "Commands:"
