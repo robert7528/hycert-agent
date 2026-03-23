@@ -60,6 +60,7 @@ type RegisterRequest struct {
 	IPAddresses []string `json:"ip_addresses,omitempty"`
 	OS          string   `json:"os,omitempty"`
 	Version     string   `json:"version,omitempty"`
+	Interval    int      `json:"interval,omitempty"`
 }
 
 // RegisterResponse is the server's response to a registration request.

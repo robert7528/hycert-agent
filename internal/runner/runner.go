@@ -142,6 +142,7 @@ func (r *Runner) Register(ctx context.Context) error {
 		IPAddresses: getLocalIPs(),
 		OS:          runtime.GOOS,
 		Version:     r.version,
+		Interval:    r.cfg.Agent.Interval,
 	}
 	resp, err := r.client.Register(req)
 	if err != nil {
