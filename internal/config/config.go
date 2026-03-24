@@ -20,6 +20,7 @@ type Config struct {
 type ServerConfig struct {
 	URL                string `mapstructure:"url"`
 	Token              string `mapstructure:"token"`
+	Proxy              string `mapstructure:"proxy"`
 	InsecureSkipVerify bool   `mapstructure:"insecure_skip_verify"`
 }
 

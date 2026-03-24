@@ -23,9 +23,15 @@ type Client struct {
 }
 
 // NewClient creates an API client.
-func NewClient(baseURL, token, agentID string, insecureSkipVerify bool) *Client {
+func NewClient(baseURL, token, agentID, proxy string, insecureSkipVerify bool) *Client {
 	transport := &http.Transport{
 		Proxy: http.ProxyFromEnvironment,
+	}
+	if proxy != "" {
+		proxyURL, err := url.Parse(proxy)
+		if err == nil {
+			transport.Proxy = http.ProxyURL(proxyURL)
+		}
 	}
 	if insecureSkipVerify {
 		transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}

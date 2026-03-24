@@ -30,7 +30,7 @@ func runCmd() *cobra.Command {
 				logger.Warn("TLS verification disabled (insecure_skip_verify=true)")
 			}
 
-			client := api.NewClient(cfg.Server.URL, cfg.Server.Token, cfg.Agent.AgentID, cfg.Server.InsecureSkipVerify)
+			client := api.NewClient(cfg.Server.URL, cfg.Server.Token, cfg.Agent.AgentID, cfg.Server.Proxy, cfg.Server.InsecureSkipVerify)
 			r := runner.New(cfg, client, logger, version)
 			r.RunOnce(context.Background())
 			return nil
