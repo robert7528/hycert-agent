@@ -18,7 +18,6 @@ BACKUP_DIR="/var/lib/hycert-agent/backups"
 LOG_DIR="/var/log/hycert-agent"
 LOG_FILE="$LOG_DIR/agent.log"
 SERVICE_NAME="hycert-agent"
-SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}.service"
 
 HYADMIN_API="http://127.0.0.1/hyadmin-api"
 HYCERT_API="http://127.0.0.1/hycert-api"
@@ -55,10 +54,10 @@ read -rp "  Agent display name [$DETECTED_IP]: " AGENT_NAME
 AGENT_NAME="${AGENT_NAME:-$DETECTED_IP}"
 
 echo "=== [1/7] Install binary ==="
-# Stop running daemon before overwriting binary
+# Stop running service before overwriting binary
 if systemctl is-active "$SERVICE_NAME" &>/dev/null; then
     info "Stopping running $SERVICE_NAME..."
-    systemctl stop "$SERVICE_NAME"
+    $BIN_DEST service stop 2>/dev/null || systemctl stop "$SERVICE_NAME" 2>/dev/null || true
 fi
 if [ ! -f "$BIN_SRC" ]; then
     die "Binary not found: $BIN_SRC\n  Run 'make build-linux' on dev machine first, then git pull."
@@ -134,24 +133,9 @@ chmod 600 "$CONFIG_FILE"
 info "Config: $CONFIG_FILE"
 
 echo ""
-echo "=== [6/7] Install systemd service ==="
-cat > "$SERVICE_FILE" << 'UNIT'
-[Unit]
-Description=HyCert Deployment Agent
-After=network-online.target
-
-[Service]
-Type=simple
-ExecStart=/usr/local/bin/hycert-agent daemon --config /etc/hycert/agent.yaml
-Restart=on-failure
-RestartSec=10
-
-[Install]
-WantedBy=multi-user.target
-UNIT
-systemctl daemon-reload
-systemctl enable "$SERVICE_NAME"
-info "Installed: $SERVICE_FILE"
+echo "=== [6/7] Install system service ==="
+$BIN_DEST service install --config "$CONFIG_FILE" 2>/dev/null || true
+info "Service installed ($(uname -s))"
 
 echo ""
 echo "=== [7/7] Check deployments ==="
@@ -189,9 +173,11 @@ else
 fi
 
 echo ""
-echo "=== Starting daemon ==="
-systemctl restart "$SERVICE_NAME"
-systemctl status "$SERVICE_NAME" --no-pager
+echo "=== Starting service ==="
+$BIN_DEST service stop 2>/dev/null || true
+$BIN_DEST service start
+sleep 1
+systemctl status "$SERVICE_NAME" --no-pager 2>/dev/null || $BIN_DEST service status
 
 echo ""
 echo "Done."
