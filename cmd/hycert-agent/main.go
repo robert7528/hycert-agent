@@ -10,6 +10,11 @@ import (
 var cfgFile string
 
 func main() {
+	// If running as Windows service, handle it directly
+	if runAsWindowsService() {
+		return
+	}
+
 	root := &cobra.Command{
 		Use:   "hycert-agent",
 		Short: "HyCert deployment agent — checks and deploys certificates to target hosts",
@@ -20,6 +25,7 @@ func main() {
 	root.AddCommand(
 		runCmd(),
 		daemonCmd(),
+		serviceCmd(),
 		versionCmd(),
 	)
 
