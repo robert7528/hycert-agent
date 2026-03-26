@@ -36,7 +36,7 @@ D:\hycert-agent\
 
 | 步驟 | 輸入項目 | 預設值 |
 |------|----------|--------|
-| 1 | Server URL | （必填，例如 `https://domain/hycert-api`） |
+| 1 | Server URL | （必填，例如 `https://jumper.k00.com.tw/hycert-api`） |
 | 2 | HTTP Proxy | 空（無代理） |
 | 3 | Skip SSL verify | N |
 | 4 | 租戶代碼 | system |
