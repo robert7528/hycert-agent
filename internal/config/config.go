@@ -1,7 +1,9 @@
 package config
 
 import (
+	"bufio"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -104,16 +106,34 @@ func Load(cfgFile string) (*Config, error) {
 		cfg.Agent.Hostname = h
 	}
 
-	// Auto-generate agent_id if not set
+	// Auto-generate agent_id if not set, with machine-id dedup
 	if cfg.Agent.AgentID == "" {
 		idFile := agentIDFilePath(cfgFile)
-		data, err := os.ReadFile(idFile)
-		if err == nil && len(data) > 0 {
-			cfg.Agent.AgentID = strings.TrimSpace(string(data))
-		} else {
+		storedUUID, storedMachine := readAgentIDFile(idFile)
+		currentMachine := getMachineID()
+
+		if storedUUID == "" {
+			// No file or unreadable → generate new
 			cfg.Agent.AgentID = uuid.New().String()
-			os.MkdirAll(filepath.Dir(idFile), 0755)
-			os.WriteFile(idFile, []byte(cfg.Agent.AgentID), 0600)
+			writeAgentIDFile(idFile, cfg.Agent.AgentID, currentMachine)
+		} else if storedMachine == "" {
+			// Old format (no machine line) → migrate: keep UUID, write machine-id
+			cfg.Agent.AgentID = storedUUID
+			writeAgentIDFile(idFile, storedUUID, currentMachine)
+		} else if currentMachine == "" {
+			// Cannot read current machine-id → keep UUID, log warning
+			cfg.Agent.AgentID = storedUUID
+			slog.Warn("cannot read machine-id, keeping existing agent-id")
+		} else if storedMachine == currentMachine {
+			// Same machine → keep UUID
+			cfg.Agent.AgentID = storedUUID
+		} else {
+			// Different machine (copied config) → generate new UUID
+			cfg.Agent.AgentID = uuid.New().String()
+			writeAgentIDFile(idFile, cfg.Agent.AgentID, currentMachine)
+			slog.Info("detected different machine, generated new agent-id",
+				"old_machine", storedMachine, "new_machine", currentMachine,
+				"new_agent_id", cfg.Agent.AgentID)
 		}
 	}
 
@@ -136,4 +156,39 @@ func agentIDFilePath(cfgFile string) string {
 		return `C:\hycert\agent-id`
 	}
 	return "/etc/hycert/agent-id"
+}
+
+// readAgentIDFile reads the agent-id file and returns (agentID, storedMachineID).
+// File format:
+//
+//	line 1: UUID
+//	line 2: machine:{machine-id}  (optional, old format has no line 2)
+func readAgentIDFile(path string) (agentID string, machineID string) {
+	f, err := os.Open(path)
+	if err != nil {
+		return "", ""
+	}
+	defer f.Close()
+
+	scanner := bufio.NewScanner(f)
+	if scanner.Scan() {
+		agentID = strings.TrimSpace(scanner.Text())
+	}
+	if scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if strings.HasPrefix(line, "machine:") {
+			machineID = strings.TrimPrefix(line, "machine:")
+		}
+	}
+	return agentID, machineID
+}
+
+// writeAgentIDFile writes the agent-id and machine-id to the file.
+func writeAgentIDFile(path string, agentID string, machineID string) {
+	os.MkdirAll(filepath.Dir(path), 0755)
+	content := agentID + "\n"
+	if machineID != "" {
+		content += "machine:" + machineID + "\n"
+	}
+	os.WriteFile(path, []byte(content), 0600)
 }
