@@ -3,6 +3,7 @@
 #   .\deploy-windows.ps1
 
 $ErrorActionPreference = "Stop"
+trap { Write-Host "`nERROR: $_" -ForegroundColor Red; pause; exit 1 }
 
 # ─── Configuration ───────────────────────────────────────────────────────────
 
@@ -162,9 +163,7 @@ if (-not $tenantCode) { $tenantCode = "system" }
 # Admin credentials
 $adminUser = Read-Host "  Admin username [admin]"
 if (-not $adminUser) { $adminUser = "admin" }
-$adminPass = Read-Host "  Admin password" -AsSecureString
-$adminPassPlain = [Runtime.InteropServices.Marshal]::PtrToStringAuto(
-    [Runtime.InteropServices.Marshal]::SecureStringToBSTR($adminPass))
+$adminPassPlain = Read-Host "  Admin password"
 if (-not $adminPassPlain) { Write-Error "Password is required"; exit 1 }
 
 # Label
@@ -320,3 +319,5 @@ Write-Host "Commands:"
 Write-Host "  .\$BinName service status     # Check status"
 Write-Host "  .\$BinName service stop       # Stop"
 Write-Host "  .\$BinName service start      # Start"
+Write-Host ""
+pause
