@@ -262,9 +262,16 @@ fi  # end of SKIP_SETUP
 
 echo ""
 echo "=== [8/8] Install and start service ==="
-$BIN_DEST service stop 2>/dev/null || true
-$BIN_DEST service install --config "$CONFIG_FILE" 2>/dev/null || true
-$BIN_DEST service start
+if [ "$SKIP_SETUP" = true ]; then
+    # Existing config — just restart
+    $BIN_DEST service stop 2>/dev/null || true
+    $BIN_DEST service start
+else
+    # Full setup — reinstall
+    $BIN_DEST service stop 2>/dev/null || true
+    $BIN_DEST service install --config "$CONFIG_FILE" 2>/dev/null || true
+    $BIN_DEST service start
+fi
 sleep 1
 systemctl status "$SERVICE_NAME" --no-pager 2>/dev/null || $BIN_DEST service status
 

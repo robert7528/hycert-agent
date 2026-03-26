@@ -296,35 +296,44 @@ try {
 Write-Host ""
 Write-Host "=== [8/8] Install and start service ==="
 
-# Stop and uninstall existing service
-& $BinPath service stop 2>$null
-Start-Sleep -Seconds 1
-& $BinPath service uninstall 2>$null
-Start-Sleep -Seconds 3
-
-# Install service
-& $BinPath service install --config $ConfigFile
-Start-Sleep -Seconds 2
-
-# Start with retry
-$started = $false
-for ($i = 1; $i -le 3; $i++) {
-    & $BinPath service start 2>$null
+if ($SkipSetup) {
+    # Existing config — just restart, no reinstall
+    & $BinPath service stop 2>$null
+    Start-Sleep -Seconds 1
+    & $BinPath service start
     Start-Sleep -Seconds 2
-    $statusOut = & $BinPath service status 2>&1
-    if ($statusOut -match "running") {
-        $started = $true
-        break
-    }
-    Write-Info "Start attempt $i failed, retrying..."
-    Start-Sleep -Seconds 2
-}
-
-if ($started) {
     & $BinPath service status
 } else {
-    Write-Host "  Warning: Service may not have started. Try manually:" -ForegroundColor Yellow
-    Write-Host "    .\$BinName service start"
+    # Full setup — uninstall + install + start
+    & $BinPath service stop 2>$null
+    Start-Sleep -Seconds 1
+    & $BinPath service uninstall 2>$null
+    Start-Sleep -Seconds 3
+
+    # Install service
+    & $BinPath service install --config $ConfigFile
+    Start-Sleep -Seconds 2
+
+    # Start with retry
+    $started = $false
+    for ($i = 1; $i -le 3; $i++) {
+        & $BinPath service start 2>$null
+        Start-Sleep -Seconds 2
+        $statusOut = & $BinPath service status 2>&1
+        if ($statusOut -match "running") {
+            $started = $true
+            break
+        }
+        Write-Info "Start attempt $i failed, retrying..."
+        Start-Sleep -Seconds 2
+    }
+
+    if ($started) {
+        & $BinPath service status
+    } else {
+        Write-Host "  Warning: Service may not have started. Try manually:" -ForegroundColor Yellow
+        Write-Host "    .\$BinName service start"
+    }
 }
 
 Write-Host ""
