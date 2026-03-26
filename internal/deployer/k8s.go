@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/hysp/hycert-agent/internal/api"
 	"github.com/hysp/hycert-agent/internal/executor"
@@ -72,6 +73,22 @@ func (d *K8SDeployer) Deploy(ctx context.Context, client *api.Client, dep model.
 	}
 	if err := os.WriteFile(keyFile, []byte(keyResult.Content), 0600); err != nil {
 		return "", fmt.Errorf("write temp key: %w", err)
+	}
+
+	// Backup existing Secret before updating
+	if d.BackupEnabled {
+		backupDir := filepath.Join(d.BackupDir, fmt.Sprintf("%s-%d", dep.TargetService, dep.ID))
+		os.MkdirAll(backupDir, 0755)
+
+		exportCmd := fmt.Sprintf("kubectl get secret %s -n %s -o yaml", detail.SecretName, detail.Namespace)
+		if detail.Kubeconfig != "" {
+			exportCmd += fmt.Sprintf(" --kubeconfig=%s", detail.Kubeconfig)
+		}
+		if out, err := executor.Run(ctx, exportCmd); err == nil {
+			backupFile := filepath.Join(backupDir, fmt.Sprintf("%s.%s.yaml", detail.SecretName, time.Now().Format("20060102-150405")))
+			os.WriteFile(backupFile, []byte(out), 0600)
+		}
+		// Backup failure is non-fatal — secret may not exist yet
 	}
 
 	// Build kubectl command:
