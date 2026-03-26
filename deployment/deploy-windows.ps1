@@ -303,8 +303,9 @@ Start-Sleep -Seconds 2
 
 # Install and start
 & $BinPath service install --config $ConfigFile
+Start-Sleep -Seconds 3
 & $BinPath service start
-Start-Sleep -Seconds 1
+Start-Sleep -Seconds 2
 & $BinPath service status
 
 Write-Host ""
