@@ -57,4 +57,9 @@ func init() {
 			return &JKSDeployer{BackupEnabled: backupEnabled, BackupDir: backupDir}
 		})
 	}
+
+	// K8S deployer: Kubernetes TLS Secret
+	Register("kubernetes", func(backupEnabled bool, backupDir string) Deployer {
+		return &K8SDeployer{BackupEnabled: backupEnabled, BackupDir: backupDir}
+	})
 }
