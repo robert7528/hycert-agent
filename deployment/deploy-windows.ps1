@@ -298,16 +298,16 @@ Write-Host "=== [8/8] Install and start service ==="
 
 if ($SkipSetup) {
     # Existing config — just restart, no reinstall
-    & $BinPath service stop 2>$null
+    try { & $BinPath service stop *>$null } catch {}
     Start-Sleep -Seconds 1
     & $BinPath service start
     Start-Sleep -Seconds 2
     & $BinPath service status
 } else {
-    # Full setup — uninstall + install + start
-    & $BinPath service stop 2>$null
+    # Full setup — stop + uninstall (ignore errors if not installed)
+    try { & $BinPath service stop *>$null } catch {}
     Start-Sleep -Seconds 1
-    & $BinPath service uninstall 2>$null
+    try { & $BinPath service uninstall *>$null } catch {}
     Start-Sleep -Seconds 3
 
     # Install service
@@ -317,7 +317,7 @@ if ($SkipSetup) {
     # Start with retry
     $started = $false
     for ($i = 1; $i -le 3; $i++) {
-        & $BinPath service start 2>$null
+        try { & $BinPath service start *>$null } catch {}
         Start-Sleep -Seconds 2
         $statusOut = & $BinPath service status 2>&1
         if ($statusOut -match "running") {
