@@ -293,6 +293,10 @@ try {
 
 # ─── [8/8] Install and start service ─────────────────────────────────────────
 
+# Disable strict error handling for service commands (Go outputs INFO to stderr)
+$ErrorActionPreference = "Continue"
+trap {}
+
 Write-Host ""
 Write-Host "=== [8/8] Install and start service ==="
 
