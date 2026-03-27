@@ -52,7 +52,7 @@ sudo bash /hysp/hycert-agent/deployment/deploy.sh
 | 4 | 租戶代碼 | system |
 | 5 | 管理者帳號 | admin |
 | 6 | 管理者密碼 | （必填） |
-| 7 | 標籤 label | 空（可留空） |
+| 7 | 標籤 label | 建議填入客戶代碼 |
 | 8 | Agent 顯示名稱 | hostname |
 | 9 | 輪詢間隔（秒） | 3600 |
 
