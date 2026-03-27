@@ -7,7 +7,7 @@ LDFLAGS := -s -w \
 	-X 'main.commit=$(COMMIT)' \
 	-X 'main.date=$(DATE)'
 
-.PHONY: build build-linux build-windows clean
+.PHONY: build build-linux build-linux-arm64 build-windows clean
 
 build:
 	go build -ldflags "$(LDFLAGS)" -o bin/hycert-agent ./cmd/hycert-agent
@@ -15,10 +15,13 @@ build:
 build-linux:
 	GOOS=linux GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o bin/hycert-agent-linux-amd64 ./cmd/hycert-agent
 
+build-linux-arm64:
+	GOOS=linux GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o bin/hycert-agent-linux-arm64 ./cmd/hycert-agent
+
 build-windows:
 	GOOS=windows GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o bin/hycert-agent-windows-amd64.exe ./cmd/hycert-agent
 
-build-all: build-linux build-windows
+build-all: build-linux build-linux-arm64 build-windows
 
 clean:
 	rm -rf bin/
