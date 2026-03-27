@@ -4,7 +4,12 @@
 set -euo pipefail
 
 APP_DIR="/hysp/hycert-agent"
-BIN_SRC="$APP_DIR/bin/hycert-agent-linux-amd64"
+ARCH=$(uname -m)
+case "$ARCH" in
+    aarch64|arm64) BIN_ARCH="arm64" ;;
+    *)             BIN_ARCH="amd64" ;;
+esac
+BIN_SRC="$APP_DIR/bin/hycert-agent-linux-$BIN_ARCH"
 BIN_DEST="/usr/local/bin/hycert-agent"
 CONFIG_DIR="/etc/hycert"
 CONFIG_FILE="$CONFIG_DIR/agent.yaml"
@@ -54,7 +59,7 @@ if systemctl is-active "$SERVICE_NAME" &>/dev/null; then
     $BIN_DEST service stop 2>/dev/null || systemctl stop "$SERVICE_NAME" 2>/dev/null || true
 fi
 if [ ! -f "$BIN_SRC" ]; then
-    die "Binary not found: $BIN_SRC\n  Run 'make build-linux' first."
+    die "Binary not found: $BIN_SRC\n  Run 'make build-linux' or 'make build-linux-arm64' first."
 fi
 cp "$BIN_SRC" "$BIN_DEST"
 chmod +x "$BIN_DEST"
