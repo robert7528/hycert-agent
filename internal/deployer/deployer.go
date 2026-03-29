@@ -58,6 +58,11 @@ func init() {
 		})
 	}
 
+	// PFX deployer: PKCS#12 keystore (iis)
+	Register("iis", func(backupEnabled bool, backupDir string) Deployer {
+		return &PFXDeployer{BackupEnabled: backupEnabled, BackupDir: backupDir}
+	})
+
 	// K8S deployer: Kubernetes TLS Secret
 	Register("kubernetes", func(backupEnabled bool, backupDir string) Deployer {
 		return &K8SDeployer{BackupEnabled: backupEnabled, BackupDir: backupDir}
