@@ -50,29 +50,29 @@ jobs:
           cd dist
 
           # Linux amd64 tar.gz (include deploy script + docs)
-          mkdir -p hycert-agent-linux-amd64
-          cp hycert-agent-linux-amd64 hycert-agent-linux-amd64/
-          cp ../deployment/deploy.sh hycert-agent-linux-amd64/
-          cp ../docs/install-linux.md hycert-agent-linux-amd64/README.md
-          tar czf hycert-agent-${VERSION}-linux-amd64.tar.gz hycert-agent-linux-amd64/
-          rm -rf hycert-agent-linux-amd64
+          mkdir -p pkg-linux-amd64
+          cp hycert-agent-linux-amd64 pkg-linux-amd64/
+          cp ../deployment/deploy.sh pkg-linux-amd64/
+          cp ../docs/install-linux.md pkg-linux-amd64/README.md
+          tar czf hycert-agent-${VERSION}-linux-amd64.tar.gz -C pkg-linux-amd64 .
+          rm -rf pkg-linux-amd64
 
           # Linux arm64 tar.gz
-          mkdir -p hycert-agent-linux-arm64
-          cp hycert-agent-linux-arm64 hycert-agent-linux-arm64/
-          cp ../deployment/deploy.sh hycert-agent-linux-arm64/
-          cp ../docs/install-linux.md hycert-agent-linux-arm64/README.md
-          tar czf hycert-agent-${VERSION}-linux-arm64.tar.gz hycert-agent-linux-arm64/
-          rm -rf hycert-agent-linux-arm64
+          mkdir -p pkg-linux-arm64
+          cp hycert-agent-linux-arm64 pkg-linux-arm64/
+          cp ../deployment/deploy.sh pkg-linux-arm64/
+          cp ../docs/install-linux.md pkg-linux-arm64/README.md
+          tar czf hycert-agent-${VERSION}-linux-arm64.tar.gz -C pkg-linux-arm64 .
+          rm -rf pkg-linux-arm64
 
           # Windows amd64 zip (include install script + docs)
-          mkdir -p hycert-agent-windows-amd64
-          cp hycert-agent-windows-amd64.exe hycert-agent-windows-amd64/
-          cp ../deployment/deploy-windows.ps1 hycert-agent-windows-amd64/
-          cp ../deployment/install.bat hycert-agent-windows-amd64/ 2>/dev/null || true
-          cp ../docs/install-windows.md hycert-agent-windows-amd64/README.md
-          zip -r hycert-agent-${VERSION}-windows-amd64.zip hycert-agent-windows-amd64/
-          rm -rf hycert-agent-windows-amd64
+          mkdir -p pkg-windows-amd64
+          cp hycert-agent-windows-amd64.exe pkg-windows-amd64/
+          cp ../deployment/deploy-windows.ps1 pkg-windows-amd64/
+          cp ../deployment/install.bat pkg-windows-amd64/ 2>/dev/null || true
+          cp ../docs/install-windows.md pkg-windows-amd64/README.md
+          zip -r hycert-agent-${VERSION}-windows-amd64.zip pkg-windows-amd64/
+          rm -rf pkg-windows-amd64
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
