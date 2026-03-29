@@ -1,0 +1,84 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Get version info
+        id: version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/}
+          COMMIT=$(git rev-parse --short HEAD)
+          DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "commit=$COMMIT" >> "$GITHUB_OUTPUT"
+          echo "date=$DATE" >> "$GITHUB_OUTPUT"
+          echo "ldflags=-s -w -X 'main.version=$VERSION' -X 'main.commit=$COMMIT' -X 'main.date=$DATE'" >> "$GITHUB_OUTPUT"
+
+      - name: Build all platforms
+        run: |
+          LDFLAGS="${{ steps.version.outputs.ldflags }}"
+
+          # Linux amd64
+          GOOS=linux GOARCH=amd64 go build -ldflags "$LDFLAGS" -o dist/hycert-agent-linux-amd64 ./cmd/hycert-agent
+
+          # Linux arm64
+          GOOS=linux GOARCH=arm64 go build -ldflags "$LDFLAGS" -o dist/hycert-agent-linux-arm64 ./cmd/hycert-agent
+
+          # Windows amd64
+          GOOS=windows GOARCH=amd64 go build -ldflags "$LDFLAGS" -o dist/hycert-agent-windows-amd64.exe ./cmd/hycert-agent
+
+      - name: Package archives
+        run: |
+          VERSION=${{ steps.version.outputs.version }}
+          cd dist
+
+          # Linux amd64 tar.gz (include deploy script + docs)
+          mkdir -p hycert-agent-linux-amd64
+          cp hycert-agent-linux-amd64 hycert-agent-linux-amd64/
+          cp ../deployment/deploy.sh hycert-agent-linux-amd64/
+          cp ../docs/install-linux.md hycert-agent-linux-amd64/README.md
+          tar czf hycert-agent-${VERSION}-linux-amd64.tar.gz hycert-agent-linux-amd64/
+          rm -rf hycert-agent-linux-amd64
+
+          # Linux arm64 tar.gz
+          mkdir -p hycert-agent-linux-arm64
+          cp hycert-agent-linux-arm64 hycert-agent-linux-arm64/
+          cp ../deployment/deploy.sh hycert-agent-linux-arm64/
+          cp ../docs/install-linux.md hycert-agent-linux-arm64/README.md
+          tar czf hycert-agent-${VERSION}-linux-arm64.tar.gz hycert-agent-linux-arm64/
+          rm -rf hycert-agent-linux-arm64
+
+          # Windows amd64 zip (include install script + docs)
+          mkdir -p hycert-agent-windows-amd64
+          cp hycert-agent-windows-amd64.exe hycert-agent-windows-amd64/
+          cp ../deployment/deploy-windows.ps1 hycert-agent-windows-amd64/
+          cp ../deployment/install.bat hycert-agent-windows-amd64/ 2>/dev/null || true
+          cp ../docs/install-windows.md hycert-agent-windows-amd64/README.md
+          zip -r hycert-agent-${VERSION}-windows-amd64.zip hycert-agent-windows-amd64/
+          rm -rf hycert-agent-windows-amd64
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            dist/hycert-agent-*-linux-amd64.tar.gz
+            dist/hycert-agent-*-linux-arm64.tar.gz
+            dist/hycert-agent-*-windows-amd64.zip
