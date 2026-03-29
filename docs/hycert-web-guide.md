@@ -390,8 +390,10 @@
 
 Agent 需要由系統管理員在客戶主機上安裝。安裝後會自動向系統註冊，並出現在 Agent 列表中。
 
-- **Linux**：使用 `deploy.sh` 安裝（詳見 install-linux.md）
-- **Windows**：雙擊 `install.bat` 安裝（詳見 install-windows.md）
+**安裝檔下載**：https://github.com/robert7528/hycert-agent/releases
+
+- **Linux**：下載 `hycert-agent-vX.X.X-linux-amd64.tar.gz`（或 arm64），解壓後執行 `deploy.sh`（詳見 install-linux.md）
+- **Windows**：下載 `hycert-agent-vX.X.X-windows-amd64.zip`，解壓後雙擊 `install.bat`（詳見 install-windows.md）
 
 ---
 
