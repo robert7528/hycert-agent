@@ -2,7 +2,7 @@
 
 ## 系統需求
 
-- Linux（amd64）
+- Linux（amd64 或 arm64）
 - 可連線到 hycert-api server
 - root 權限
 - jq、curl 已安裝
@@ -11,29 +11,43 @@
 
 ### 1. 取得安裝檔
 
-從已 build 的主機打包：
+**方式 A：從 GitHub Release 下載（推薦）**
 
 ```bash
-# 在 build 主機上（例如 10.30.0.70）
+# amd64（一般主機）
+curl -L -o hycert-agent.tar.gz \
+  https://github.com/robert7528/hycert-agent/releases/latest/download/hycert-agent-v0.2.0-linux-amd64.tar.gz
+
+# arm64（AWS ARM 等）
+curl -L -o hycert-agent.tar.gz \
+  https://github.com/robert7528/hycert-agent/releases/latest/download/hycert-agent-v0.2.0-linux-arm64.tar.gz
+```
+
+> 版本號請替換為最新版，查看：https://github.com/robert7528/hycert-agent/releases
+
+**方式 B：從已 build 的主機打包**
+
+```bash
 tar -czvf /tmp/hycert-agent.tgz \
   /hysp/hycert-agent/bin/hycert-agent-linux-amd64 \
   /hysp/hycert-agent/deployment/deploy.sh
 ```
 
-將 `hycert-agent.tgz` 傳到客戶端主機（FTP、SCP 等）。
-
 ### 2. 解壓
 
 ```bash
-cd /
-sudo tar -xzvf /tmp/hycert-agent.tgz
-```
+sudo mkdir -p /hysp/hycert-agent/bin /hysp/hycert-agent/deployment
+cd /hysp/hycert-agent
 
-解壓後目錄結構：
-```
-/hysp/hycert-agent/
-├── bin/hycert-agent-linux-amd64    # 主程式
-└── deployment/deploy.sh            # 安裝腳本
+# GitHub Release 下載的：
+sudo tar xzf /tmp/hycert-agent.tar.gz
+# 產生：hycert-agent-linux-amd64（或 arm64）、deploy.sh、README.md
+
+# 搬到正確位置
+ARCH=$(uname -m)
+case "$ARCH" in aarch64|arm64) BIN=hycert-agent-linux-arm64 ;; *) BIN=hycert-agent-linux-amd64 ;; esac
+sudo mv $BIN bin/ 2>/dev/null || true
+sudo mv deploy.sh deployment/ 2>/dev/null || true
 ```
 
 ### 3. 執行安裝
@@ -115,7 +129,7 @@ sudo bash /hysp/hycert-agent/deployment/deploy.sh
 
 - 偵測到現有設定 → 選 1 繼續使用（只重啟服務）
 - 偵測到現有設定 → 選 2 重新設定（重新輸入所有參數）
-- 如需更新 binary，先替換 `/hysp/hycert-agent/bin/hycert-agent-linux-amd64` 再跑腳本
+- 如需更新 binary，從 GitHub Release 下載最新版替換 `/hysp/hycert-agent/bin/` 下的 binary 再跑腳本
 
 ## 移除
 

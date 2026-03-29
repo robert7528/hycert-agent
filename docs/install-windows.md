@@ -10,14 +10,13 @@
 
 ### 1. 取得安裝檔
 
-取得 `hycert-agent.zip`，包含三個檔案：
+**方式 A：從 GitHub Release 下載（推薦）**
 
-```
-hycert-agent.zip
-├── hycert-agent-windows-amd64.exe    # 主程式
-├── deploy-windows.ps1                 # 安裝腳本
-└── install.bat                        # 一鍵啟動器
-```
+下載最新版：https://github.com/robert7528/hycert-agent/releases
+
+選擇 `hycert-agent-vX.X.X-windows-amd64.zip`
+
+**方式 B：由管理員提供 zip 檔**
 
 ### 2. 解壓
 
@@ -25,9 +24,9 @@ hycert-agent.zip
 
 ```
 D:\hycert-agent\
-├── hycert-agent-windows-amd64.exe
-├── deploy-windows.ps1
-└── install.bat
+├── hycert-agent-windows-amd64.exe    # 主程式
+├── deploy-windows.ps1                 # 安裝腳本
+└── install.bat                        # 一鍵啟動器
 ```
 
 ### 3. 執行安裝
@@ -100,7 +99,7 @@ Get-Content D:\hycert-agent\logs\agent.log -Wait        # 即時 log
 
 - 偵測到現有設定 → 選 1 繼續使用（只重啟服務）
 - 偵測到現有設定 → 選 2 重新設定（重新輸入所有參數）
-- 如需更新 binary，先替換 `hycert-agent-windows-amd64.exe` 再跑 `install.bat`
+- 如需更新 binary，從 GitHub Release 下載最新版替換 `hycert-agent-windows-amd64.exe` 再跑 `install.bat`
 
 ## 移除
 
