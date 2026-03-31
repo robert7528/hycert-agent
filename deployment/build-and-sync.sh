@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # Build Linux binary on dev machine and sync to remote host.
 # Usage: bash deployment/build-and-sync.sh [HOST]
-#   HOST defaults to 10.30.0.70
+#   HOST defaults to your app server IP (e.g. 192.168.1.100)
 
 set -euo pipefail
 
-HOST="${1:-10.30.0.70}"
+HOST="${1:?Usage: $0 <HOST_IP>}"
 REMOTE_DIR="/hysp/hycert-agent"
 
 echo "=== Build Linux binary ==="

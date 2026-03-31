@@ -1,7 +1,7 @@
 # HyCert 憑證管理系統 — Web 操作手冊
 
 > 適用對象：PM / 管理員
-> 系統入口：https://jumper.k00.com.tw/hyadmin → 左側選單「憑證管理」模組
+> 系統入口：https://your-domain.example.com/hyadmin → 左側選單「憑證管理」模組
 
 ---
 

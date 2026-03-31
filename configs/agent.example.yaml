@@ -1,5 +1,5 @@
 server:
-  url: "https://jumper.k00.com.tw/hycert-api"
+  url: "https://your-domain.example.com/hycert-api"
   token: "hycert_agt_xxxxx..."     # or use HYCERT_AGENT_TOKEN env
   proxy: ""                        # HTTP proxy (e.g. http://192.168.5.249:1654)
   insecure_skip_verify: false      # set true for self-signed cert environments
