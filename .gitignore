@@ -2,3 +2,6 @@ bin/
 *.exe
 agent.yaml
 .env
+
+# Claude Code
+CLAUDE.md
