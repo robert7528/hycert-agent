@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/hysp/hycert-agent/internal/api"
@@ -21,6 +22,15 @@ type K8STargetDetail struct {
 	ReloadCmd  string `json:"reload_cmd"` // optional post-deploy command
 }
 
+// Normalize trims whitespace from string fields — see model.TargetDetail.Normalize
+// for rationale.
+func (d *K8STargetDetail) Normalize() {
+	d.SecretName = strings.TrimSpace(d.SecretName)
+	d.Namespace = strings.TrimSpace(d.Namespace)
+	d.Kubeconfig = strings.TrimSpace(d.Kubeconfig)
+	d.ReloadCmd = strings.TrimSpace(d.ReloadCmd)
+}
+
 // K8SDeployer handles Kubernetes TLS Secret updates via kubectl.
 type K8SDeployer struct {
 	BackupEnabled bool
@@ -32,6 +42,7 @@ func (d *K8SDeployer) Deploy(ctx context.Context, client *api.Client, dep model.
 	if err := json.Unmarshal([]byte(dep.TargetDetail), &detail); err != nil {
 		return "", fmt.Errorf("parse target_detail: %w", err)
 	}
+	detail.Normalize()
 
 	if detail.SecretName == "" {
 		return "", fmt.Errorf("secret_name is required in target_detail")

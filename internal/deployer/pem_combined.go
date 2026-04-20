@@ -23,6 +23,7 @@ func (d *PEMCombinedDeployer) Deploy(ctx context.Context, client *api.Client, de
 	if err := json.Unmarshal([]byte(dep.TargetDetail), &detail); err != nil {
 		return "", fmt.Errorf("parse target_detail: %w", err)
 	}
+	detail.Normalize()
 
 	if detail.CertPath == "" {
 		return "", fmt.Errorf("cert_path is required in target_detail")

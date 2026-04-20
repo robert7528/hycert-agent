@@ -1,5 +1,7 @@
 package model
 
+import "strings"
+
 // AgentDeployment mirrors hycert-api AgentDeploymentDTO.
 type AgentDeployment struct {
 	ID              uint   `json:"id"`
@@ -14,6 +16,10 @@ type AgentDeployment struct {
 	AgentID         string `json:"agent_id,omitempty"`
 }
 
+// Trimmable field names that Normalize() strips leading/trailing
+// whitespace from. Password is intentionally excluded — keystore
+// passwords can legitimately contain surrounding spaces.
+//
 // TargetDetail is the parsed target_detail JSON for deployment services.
 type TargetDetail struct {
 	OS        string `json:"os"`
@@ -34,6 +40,23 @@ type TargetDetail struct {
 	VerifyHost   string `json:"verify_host,omitempty"`    // default: 127.0.0.1
 	VerifyPort   int    `json:"verify_port,omitempty"`    // default: 443
 	VerifyTimeoutSeconds int `json:"verify_timeout,omitempty"` // default: service-type dependent
+}
+
+// Normalize trims leading/trailing whitespace from path-like fields so
+// UI input mistakes (copy-paste picking up trailing spaces, hidden
+// newlines from editors) don't silently cause the agent to write to a
+// file nginx/tomcat doesn't actually read.
+//
+// Password is NOT trimmed — keystore passwords can legitimately contain
+// surrounding whitespace, and trimming would silently break otherwise-
+// valid configs.
+func (t *TargetDetail) Normalize() {
+	t.OS = strings.TrimSpace(t.OS)
+	t.CertPath = strings.TrimSpace(t.CertPath)
+	t.KeyPath = strings.TrimSpace(t.KeyPath)
+	t.Alias = strings.TrimSpace(t.Alias)
+	t.ReloadCmd = strings.TrimSpace(t.ReloadCmd)
+	t.VerifyHost = strings.TrimSpace(t.VerifyHost)
 }
 
 // UpdateStatusRequest mirrors hycert-api UpdateDeployStatusRequest.
