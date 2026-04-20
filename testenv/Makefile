@@ -40,8 +40,10 @@ up: certs tls-reject-up
 	@$(MAKE) --no-print-directory verify
 
 ## stop all test services
+## nginx-mismatch is listed for cleanup of pre-c73fe26 setups; safe to
+## leave indefinitely (it's a no-op when the container isn't present).
 down: tls-reject-down
-	-podman rm -f $(PREFIX)-nginx-a $(PREFIX)-nginx-b 2>/dev/null
+	-podman rm -f $(PREFIX)-nginx-a $(PREFIX)-nginx-b $(PREFIX)-nginx-mismatch 2>/dev/null
 
 ## build + launch tls-reject on 8445 (HandshakeFailure scenario)
 tls-reject-up: $(TLS_REJECT_BIN) tls-reject-down
