@@ -2,13 +2,11 @@ package deployer
 
 import (
 	"context"
-	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"log/slog"
 	"os"
 	"path/filepath"
-	"time"
 
 	"github.com/hysp/hycert-agent/internal/api"
 	"github.com/hysp/hycert-agent/internal/backup"
@@ -134,54 +132,3 @@ func writeFile(path string, data []byte, perm os.FileMode) error {
 	return osutil.WriteFileAtomic(path, data, perm)
 }
 
-// verifyHost returns the TLS probe target host, defaulting to 127.0.0.1
-// when target_detail does not specify one (agent usually probes itself).
-func verifyHost(detail model.TargetDetail) string {
-	if detail.VerifyHost != "" {
-		return detail.VerifyHost
-	}
-	return "127.0.0.1"
-}
-
-// verifyPort picks the TLS probe port in this order:
-//  1. target_detail.verify_port (explicit override)
-//  2. deployment.Port (the port the service is configured to serve on)
-//  3. 443 (sensible default)
-func verifyPort(detail model.TargetDetail, dep model.AgentDeployment) int {
-	if detail.VerifyPort > 0 {
-		return detail.VerifyPort
-	}
-	if dep.Port != nil && *dep.Port > 0 {
-		return *dep.Port
-	}
-	return 443
-}
-
-// sniList builds the SNI list for probing. Skeleton returns at most one
-// SNI (first concrete non-wildcard from SAN/CN); later steps expand to
-// multi-SNI parallel probing.
-func sniList(cert *x509.Certificate) []string {
-	if sni := pickSNI(cert); sni != "" {
-		return []string{sni}
-	}
-	return nil
-}
-
-// verifyTimeoutFor picks a reasonable total probe budget per service
-// type, unless the deployment overrides it explicitly.
-//
-// Mirrors reload timeout tiers — cold-start services need longer verify
-// windows since they may still be warming up after reload returned.
-func verifyTimeoutFor(service string, overrideSeconds int) time.Duration {
-	if overrideSeconds > 0 {
-		return time.Duration(overrideSeconds) * time.Second
-	}
-	switch service {
-	case "tomcat", "iis":
-		return 180 * time.Second
-	case "kubernetes":
-		return 60 * time.Second
-	default:
-		return 30 * time.Second
-	}
-}
