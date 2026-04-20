@@ -209,9 +209,9 @@ func TestProbeTLS_RetrySuccessAfterReload(t *testing.T) {
 // TestClassify_SettledMismatch: last N all handshake OK + same wrong FP → Mismatch.
 func TestClassify_SettledMismatch(t *testing.T) {
 	recent := []attemptOutcome{
-		{handshakeOK: true, fingerprint: "AA:BB"},
-		{handshakeOK: true, fingerprint: "AA:BB"},
-		{handshakeOK: true, fingerprint: "AA:BB"},
+		{stage: stageHandshakeOK, fingerprint: "AA:BB"},
+		{stage: stageHandshakeOK, fingerprint: "AA:BB"},
+		{stage: stageHandshakeOK, fingerprint: "AA:BB"},
 	}
 	if got := classify(recent, "CC:DD"); got != ResultMismatch {
 		t.Errorf("got %s, want mismatch", got)
@@ -221,24 +221,50 @@ func TestClassify_SettledMismatch(t *testing.T) {
 // TestClassify_VolatileFingerprints: last N succeeded but fingerprints differ → Timeout.
 func TestClassify_VolatileFingerprints(t *testing.T) {
 	recent := []attemptOutcome{
-		{handshakeOK: true, fingerprint: "AA:BB"},
-		{handshakeOK: true, fingerprint: "CC:DD"},
-		{handshakeOK: true, fingerprint: "AA:BB"},
+		{stage: stageHandshakeOK, fingerprint: "AA:BB"},
+		{stage: stageHandshakeOK, fingerprint: "CC:DD"},
+		{stage: stageHandshakeOK, fingerprint: "AA:BB"},
 	}
 	if got := classify(recent, "EE:FF"); got != ResultTimeout {
 		t.Errorf("got %s, want timeout", got)
 	}
 }
 
-// TestClassify_ConnOnly: all failed handshake → ConnRefused.
-func TestClassify_ConnOnly(t *testing.T) {
+// TestClassify_ConnRefused: all TCP failed → ConnRefused (port closed).
+func TestClassify_ConnRefused(t *testing.T) {
 	recent := []attemptOutcome{
-		{handshakeOK: false},
-		{handshakeOK: false},
-		{handshakeOK: false},
+		{stage: stageTCPFailed},
+		{stage: stageTCPFailed},
+		{stage: stageTCPFailed},
 	}
 	if got := classify(recent, "AA:BB"); got != ResultConnRefused {
 		t.Errorf("got %s, want conn_refused", got)
+	}
+}
+
+// TestClassify_HandshakeFailure: all TCP OK but TLS rejected → HandshakeFailure.
+// Covers the cert/key mismatch scenario (server sends alert 40).
+func TestClassify_HandshakeFailure(t *testing.T) {
+	recent := []attemptOutcome{
+		{stage: stageHandshakeFailed},
+		{stage: stageHandshakeFailed},
+		{stage: stageHandshakeFailed},
+	}
+	if got := classify(recent, "AA:BB"); got != ResultHandshakeFailure {
+		t.Errorf("got %s, want handshake_failure", got)
+	}
+}
+
+// TestClassify_MixedTCPAndHandshake: TCP refused + handshake failed → Timeout.
+// Not uniformly one failure mode; classifier holds back from settling.
+func TestClassify_MixedTCPAndHandshake(t *testing.T) {
+	recent := []attemptOutcome{
+		{stage: stageTCPFailed},
+		{stage: stageHandshakeFailed},
+		{stage: stageTCPFailed},
+	}
+	if got := classify(recent, "AA:BB"); got != ResultTimeout {
+		t.Errorf("got %s, want timeout (mixed TCP/handshake failures)", got)
 	}
 }
 
@@ -247,9 +273,9 @@ func TestClassify_ConnOnly(t *testing.T) {
 // return stale FP, probe window expires before new cert loads.
 func TestClassify_Mixed(t *testing.T) {
 	recent := []attemptOutcome{
-		{handshakeOK: false},
-		{handshakeOK: true, fingerprint: "AA:BB"},
-		{handshakeOK: true, fingerprint: "AA:BB"},
+		{stage: stageTCPFailed},
+		{stage: stageHandshakeOK, fingerprint: "AA:BB"},
+		{stage: stageHandshakeOK, fingerprint: "AA:BB"},
 	}
 	if got := classify(recent, "CC:DD"); got != ResultTimeout {
 		t.Errorf("got %s, want timeout (mixed history)", got)

@@ -37,14 +37,22 @@ const (
 	// matches ExpectedFingerprint.
 	ResultMatch VerifyResult = iota
 
-	// ResultConnRefused — never completed a TLS handshake within the
-	// probe window. Typical cause: service still restarting or port blocked.
+	// ResultConnRefused — TCP connect never succeeded within the probe
+	// window. Typical cause: service down, port not yet open after reload,
+	// or firewall. Treated as a warning (may resolve itself next poll).
 	ResultConnRefused
 
-	// ResultMismatch — at least one handshake succeeded, but every
-	// presented fingerprint differed from ExpectedFingerprint. Typical
-	// cause: another service owns the port (e.g. an LB fronting the agent's
-	// target, or a stale reload never applied the new cert).
+	// ResultHandshakeFailure — TCP connect succeeded but TLS handshake was
+	// rejected by the server (e.g. alert 40). Typical causes: cert/key
+	// mismatch on disk, cipher incompatibility, SNI matches no server
+	// block and server drops the handshake. Treated as an error — this is
+	// misconfig, not a transient state.
+	ResultHandshakeFailure
+
+	// ResultMismatch — handshake succeeded, server presented a cert, but
+	// the fingerprint differed from ExpectedFingerprint. Typical cause:
+	// another service owns the port (LB fronting, stale nginx config) or
+	// the agent wrote to a path the service doesn't read.
 	ResultMismatch
 
 	// ResultChainIncomplete — (reserved for later step) fingerprint
@@ -56,8 +64,8 @@ const (
 	ResultMTLSDetected
 
 	// ResultTimeout — mixed outcomes over the probe window. Used when the
-	// loop could neither conclude Match, nor settle on ConnRefused /
-	// Mismatch consistently.
+	// loop could neither conclude Match nor settle consistently on one of
+	// the failure classes.
 	ResultTimeout
 )
 
@@ -68,6 +76,8 @@ func (r VerifyResult) String() string {
 		return "match"
 	case ResultConnRefused:
 		return "conn_refused"
+	case ResultHandshakeFailure:
+		return "handshake_failure"
 	case ResultMismatch:
 		return "mismatch"
 	case ResultChainIncomplete:
@@ -160,13 +170,13 @@ func ProbeTLS(ctx context.Context, req VerifyRequest) VerifyResponse {
 		out := dialAndCheck(ctx, req, sni)
 
 		// Record attempt in the rolling window of size classifyWindow.
-		ao := attemptOutcome{handshakeOK: out.err == nil, fingerprint: out.fingerprint}
+		ao := attemptOutcome{stage: out.stage, fingerprint: out.fingerprint}
 		if len(recent) == classifyWindow {
 			recent = recent[1:]
 		}
 		recent = append(recent, ao)
 
-		if out.err == nil {
+		if out.stage == stageHandshakeOK {
 			resp.ActualFingerprints[sni] = out.fingerprint
 			if out.fingerprint == req.ExpectedFingerprint {
 				resp.Result = ResultMatch
@@ -192,56 +202,69 @@ func ProbeTLS(ctx context.Context, req VerifyRequest) VerifyResponse {
 	}
 }
 
+// attemptStage describes which phase of a probe attempt reached its
+// final outcome. Used by classify() to distinguish TCP-level refusal
+// from TLS-layer rejection, which have different operator-visible
+// meanings.
+type attemptStage int
+
+const (
+	stageTCPFailed       attemptStage = iota // TCP dial failed (port closed, timeout, unreachable)
+	stageHandshakeFailed                     // TCP OK, TLS handshake rejected
+	stageHandshakeOK                         // TCP OK, TLS OK, cert read
+)
+
 // attemptOutcome is one probe attempt's outcome, kept in a rolling window
 // for terminal classification.
 type attemptOutcome struct {
-	handshakeOK bool
-	fingerprint string
+	stage       attemptStage
+	fingerprint string // populated only when stage == stageHandshakeOK
 }
 
-// dialOutcome is the per-attempt result.
+// dialOutcome is the per-attempt result. stage classifies how far the
+// attempt progressed before failing (or succeeding); err carries the
+// underlying error for diagnostics.
 type dialOutcome struct {
+	stage       attemptStage
 	fingerprint string
 	err         error
 }
 
+// dialAndCheck performs a TCP dial, then a TLS handshake, then reads the
+// peer cert. Splitting TCP from TLS lets us distinguish port-closed from
+// TLS-rejected in classification (different operator diagnostic paths).
 func dialAndCheck(ctx context.Context, req VerifyRequest, sni string) dialOutcome {
 	addr := net.JoinHostPort(req.Host, fmt.Sprintf("%d", req.Port))
+
+	// --- Stage 1: TCP connect ---
 	dialer := &net.Dialer{Timeout: req.ConnectTimeout}
-
-	dialCtx, cancel := context.WithTimeout(ctx, req.ConnectTimeout)
-	defer cancel()
-
-	conn, err := tls.DialWithDialer(
-		dialerFromContext(dialer, dialCtx),
-		"tcp",
-		addr,
-		&tls.Config{
-			InsecureSkipVerify: true, // we verify by fingerprint ourselves
-			ServerName:         sni,
-		},
-	)
+	tcp, err := dialer.DialContext(ctx, "tcp", addr)
 	if err != nil {
-		return dialOutcome{err: err}
+		return dialOutcome{stage: stageTCPFailed, err: err}
 	}
-	defer conn.Close()
+	defer tcp.Close()
 
-	state := conn.ConnectionState()
+	// --- Stage 2: TLS handshake ---
+	tlsConn := tls.Client(tcp, &tls.Config{
+		InsecureSkipVerify: true, // we verify by fingerprint ourselves
+		ServerName:         sni,
+	})
+	if err := tlsConn.SetDeadline(time.Now().Add(req.ConnectTimeout)); err != nil {
+		return dialOutcome{stage: stageHandshakeFailed, err: err}
+	}
+	if err := tlsConn.HandshakeContext(ctx); err != nil {
+		return dialOutcome{stage: stageHandshakeFailed, err: err}
+	}
+
+	// --- Stage 3: read cert ---
+	state := tlsConn.ConnectionState()
 	if len(state.PeerCertificates) == 0 {
-		return dialOutcome{err: errors.New("no peer certificates")}
+		return dialOutcome{stage: stageHandshakeFailed, err: errors.New("no peer certificates")}
 	}
-	return dialOutcome{fingerprint: fingerprintOf(state.PeerCertificates[0])}
-}
-
-// dialerFromContext returns a Dialer whose Dial methods honor ctx. net.Dialer
-// has DialContext but tls.DialWithDialer wants a non-context Dialer; we wrap
-// Deadline from ctx onto the dialer. This is good enough for the skeleton —
-// parallel probes in a later step will use tls.Dialer.DialContext directly.
-func dialerFromContext(d *net.Dialer, ctx context.Context) *net.Dialer {
-	if dl, ok := ctx.Deadline(); ok {
-		d.Deadline = dl
+	return dialOutcome{
+		stage:       stageHandshakeOK,
+		fingerprint: fingerprintOf(state.PeerCertificates[0]),
 	}
-	return d
 }
 
 // firstSNI returns the SNI to send: SNIList[0] if present, else Host.
@@ -266,44 +289,60 @@ func fingerprintOf(cert *x509.Certificate) string {
 // classify resolves the terminal Result when the probe loop exits without
 // a match, using the last N attempts' pattern.
 //
-// Rules (in order):
-//  1. No attempts recorded → Timeout (pathological).
-//  2. All recent attempts failed handshake → ConnRefused (service down).
-//  3. All recent attempts succeeded + same non-expected fingerprint →
-//     Mismatch (settled on wrong cert; likely misconfig).
-//  4. Anything else (mixed success/failure, volatile fingerprints) →
-//     Timeout (still transitioning; probe window was too short).
+// Rules (in order of precedence):
+//  1. No attempts                           → Timeout (pathological).
+//  2. All recent attempts failed at TCP     → ConnRefused
+//     (service down / port closed; warning).
+//  3. All recent attempts failed at TLS
+//     handshake                             → HandshakeFailure
+//     (TCP OK but TLS rejected — cert/key mismatch, cipher/SNI misconfig;
+//     error).
+//  4. All recent attempts completed
+//     handshake + same non-expected FP      → Mismatch
+//     (settled on wrong cert; error).
+//  5. Anything else (mixed stages, volatile
+//     fingerprints)                         → Timeout
+//     (still transitioning; warning).
 //
-// The "last N" framing matters because a single late handshake that catches
+// The "last N" framing matters because a single late success that catches
 // an in-flight reload shouldn't flip the result from Timeout to Mismatch —
-// Mismatch raises an error alert, Timeout raises only a warning.
+// errors raise alerts, warnings don't.
 func classify(recent []attemptOutcome, expected string) VerifyResult {
 	if len(recent) == 0 {
 		return ResultTimeout
 	}
 
-	allHandshakeFailed := true
-	allHandshakeOK := true
-	firstFP := ""
-	uniformFP := true
+	var (
+		tcpFailedCount       int
+		handshakeFailedCount int
+		handshakeOKCount     int
+		firstFP              string
+		uniformFP            = true
+	)
 
-	for i, a := range recent {
-		if a.handshakeOK {
-			allHandshakeFailed = false
-			if i == 0 || firstFP == "" {
+	for _, a := range recent {
+		switch a.stage {
+		case stageTCPFailed:
+			tcpFailedCount++
+		case stageHandshakeFailed:
+			handshakeFailedCount++
+		case stageHandshakeOK:
+			handshakeOKCount++
+			if firstFP == "" {
 				firstFP = a.fingerprint
 			} else if a.fingerprint != firstFP {
 				uniformFP = false
 			}
-		} else {
-			allHandshakeOK = false
 		}
 	}
 
+	total := len(recent)
 	switch {
-	case allHandshakeFailed:
+	case tcpFailedCount == total:
 		return ResultConnRefused
-	case allHandshakeOK && uniformFP && firstFP != "" && firstFP != expected:
+	case handshakeFailedCount == total:
+		return ResultHandshakeFailure
+	case handshakeOKCount == total && uniformFP && firstFP != "" && firstFP != expected:
 		return ResultMismatch
 	default:
 		return ResultTimeout

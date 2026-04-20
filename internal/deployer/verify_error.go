@@ -37,25 +37,25 @@ func (e *VerifyError) Error() string {
 // Explicit mapping (keep this table the single source of truth as new
 // VerifyResult values are added):
 //
-//	Match            → never reaches here (no VerifyError created)
-//	ConnRefused      → Warning (service may still be starting; next poll
-//	                   will re-verify)
-//	Timeout          → Warning (results were volatile inside probe window;
-//	                   likely a timing issue, not misconfig)
-//	Mismatch         → Error   (service is live and serving a DIFFERENT
-//	                   cert — real misconfig, e.g. agent wrote to
-//	                   /hyproxy/ssl/cert.pem but port 443 is nginx
-//	                   reading from /etc/nginx/ssl/cert.pem)
-//	ChainIncomplete  → Warning (cert served, intermediate CA missing —
-//	                   operator should fix but service is functional for
-//	                   clients that bundle roots; reserved, not yet
-//	                   produced)
-//	MTLSDetected     → Warning (cannot verify without client cert config;
-//	                   operator should set SkipVerify=true or provide
-//	                   client cert; reserved, not yet produced)
+//	Match             → never reaches here (no VerifyError created)
+//	ConnRefused       → Warning (TCP refused; service may still be
+//	                    starting, next poll will re-verify)
+//	HandshakeFailure  → Error   (TCP OK but TLS rejected — cert/key
+//	                    mismatch, cipher/SNI misconfig; operator needs
+//	                    to intervene, retry won't fix it)
+//	Timeout           → Warning (mixed/volatile outcomes inside probe
+//	                    window; likely timing, not misconfig)
+//	Mismatch          → Error   (service live but serving a DIFFERENT
+//	                    cert — real misconfig, e.g. agent wrote to
+//	                    /hyproxy/ssl/cert.pem but port 443 is nginx
+//	                    reading /etc/nginx/ssl/cert.pem)
+//	ChainIncomplete   → Warning (cert served, intermediate CA missing;
+//	                    reserved, not yet produced)
+//	MTLSDetected      → Warning (cannot verify without client cert
+//	                    config; reserved, not yet produced)
 func (e *VerifyError) IsWarning() bool {
 	switch e.Result {
-	case verify.ResultMismatch:
+	case verify.ResultMismatch, verify.ResultHandshakeFailure:
 		return false
 	case verify.ResultConnRefused,
 		verify.ResultTimeout,
