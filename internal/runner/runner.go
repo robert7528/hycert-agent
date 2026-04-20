@@ -176,13 +176,15 @@ func (r *Runner) reportVerifyWarning(deployID uint, ve *deployer.VerifyError, st
 	return "deployed"
 }
 
-// reportVerifyMismatch is used when the service is live but serving a
-// different cert — a real misconfig worth alerting on. We do NOT update
-// last_fingerprint so the deployment stays visibly "failed" until an
-// operator intervenes or config is corrected.
+// reportVerifyMismatch is used when verification revealed a hard error
+// (Mismatch: service live but serving a different cert; HandshakeFailure:
+// TCP OK but TLS rejected e.g. from cert/key mismatch or cipher / curve
+// incompatibility). We do NOT update last_fingerprint so the deployment
+// stays visibly "failed" until an operator intervenes.
 func (r *Runner) reportVerifyMismatch(deployID uint, ve *deployer.VerifyError, start time.Time, log *slog.Logger) string {
 	duration := int(time.Since(start).Milliseconds())
-	log.Error("deployment fingerprint mismatch",
+	log.Error("deployment verify failed",
+		"verify_result", ve.Result.String(),
 		"expected_fingerprint", ve.Fingerprint,
 		"actual_fingerprints", ve.Actual,
 		"verify_detail", ve.Detail,
