@@ -69,9 +69,14 @@ verify:
 	    | grep -E 'handshake|alert|CONNECTED' | head -3 || echo "(no output — that's also possible)"
 
 ## print cert-a SHA-256 fingerprint (use as ExpectedFingerprint for scenario 1)
-fingerprint-a: certs
+##
+## NOT dependent on `certs` target — gen-certs.sh emits informational
+## echoes that would pollute `make -s fingerprint-a` output used for
+## env-var capture. Run `make up` (or `make certs`) first to populate
+## certs/; if missing, openssl exits non-zero with a clear error.
+fingerprint-a:
 	@openssl x509 -in $(HERE)/certs/cert-a.pem -noout -fingerprint -sha256 | sed 's/^.*=//'
 
 ## print cert-b SHA-256 fingerprint
-fingerprint-b: certs
+fingerprint-b:
 	@openssl x509 -in $(HERE)/certs/cert-b.pem -noout -fingerprint -sha256 | sed 's/^.*=//'
