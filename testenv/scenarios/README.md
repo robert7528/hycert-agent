@@ -56,14 +56,13 @@ Expected: `ResultHandshakeFailure` (error-level, v0.3.1+)
 
 ```
 Host:                127.0.0.1
-Port:                8445           # nginx-mismatch: cert-a pub + key-b private
+Port:                8445           # nginx-mismatch: requires client cert
 ExpectedFingerprint: $FP_A
 ```
 
-Note: on nginx versions that validate cert/key at startup,
-`nginx-mismatch` may fail to start — that also satisfies the scenario
-(port is bound by nothing → probe gets ConnRefused, not
-HandshakeFailure). To force HandshakeFailure specifically, use an
-nginx version older than the validating one, or swap to a service
-that loads cert/key lazily (haproxy serves this purpose on many
-distros).
+`nginx-mismatch` is configured with `ssl_verify_client on`. Go's default
+TLS client does not present a client cert, so nginx aborts the
+handshake with a TLS alert. This gives us a reliable, deterministic
+path to `ResultHandshakeFailure` without relying on mismatched
+cert/key pairs (which modern nginx validates at startup, causing the
+container to exit and making the port closed rather than listening).

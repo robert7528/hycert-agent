@@ -34,13 +34,14 @@ up: certs
 	    -v $(HERE)/certs/cert-b.pem:/etc/nginx/ssl/cert.pem:ro \
 	    -v $(HERE)/certs/key-b.pem:/etc/nginx/ssl/key.pem:ro \
 	    $(IMAGE)
-	@echo "=== nginx-mismatch on 8445 (cert-a pub + key-b private) ==="
+	@echo "=== nginx-mismatch on 8445 (mTLS required — clients without cert get handshake failure) ==="
 	podman run -d --name $(PREFIX)-nginx-mismatch \
 	    -p 127.0.0.1:8445:443 \
 	    -v $(HERE)/nginx/nginx-mismatch.conf:/etc/nginx/conf.d/default.conf:ro \
 	    -v $(HERE)/certs/cert-a.pem:/etc/nginx/ssl/cert.pem:ro \
-	    -v $(HERE)/certs/key-b.pem:/etc/nginx/ssl/key.pem:ro \
-	    $(IMAGE) || echo "(nginx-mismatch expected to fail config check — check logs if verifying scenario 4)"
+	    -v $(HERE)/certs/key-a.pem:/etc/nginx/ssl/key.pem:ro \
+	    -v $(HERE)/certs/cert-a.pem:/etc/nginx/ssl/ca.pem:ro \
+	    $(IMAGE)
 	@sleep 1
 	@$(MAKE) --no-print-directory verify
 

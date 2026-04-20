@@ -17,7 +17,7 @@ touching any customer environment.
 | 1 | Match            | nginx-a (8443) serves cert-a; deploy cert-a | `match`                 |
 | 2 | Mismatch         | nginx-b (8444) serves cert-b; deploy cert-a | `mismatch`              |
 | 3 | ConnRefused      | probe port 9999 (no service)                | `conn_refused`          |
-| 4 | HandshakeFailure | nginx-mismatch (8445) cert-a pub + key-b    | `handshake_failure`     |
+| 4 | HandshakeFailure | nginx-mismatch (8445) requires client cert  | `handshake_failure`     |
 
 `timeout` classification is not exercised end-to-end — it requires
 mid-probe state changes that are difficult to reproduce reliably with
