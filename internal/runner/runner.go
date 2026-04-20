@@ -2,6 +2,7 @@ package runner
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net"
@@ -99,6 +100,20 @@ func (r *Runner) processDeploy(ctx context.Context, dep model.AgentDeployment) s
 	}
 
 	fingerprint, err := d.Deploy(ctx, r.client, dep)
+
+	// Verification disagreement: cert was written to disk but the live TLS
+	// probe didn't confirm it. For warnings (service still starting,
+	// verify window ran out) we mark deployed so the fingerprint
+	// propagates and the next poll skips. For Mismatch (service live,
+	// serving a different cert) we treat as a real failure.
+	var verifyErr *deployer.VerifyError
+	if errors.As(err, &verifyErr) {
+		if verifyErr.IsWarning() {
+			return r.reportVerifyWarning(dep.ID, verifyErr, start, log)
+		}
+		return r.reportVerifyMismatch(dep.ID, verifyErr, start, log)
+	}
+
 	if err != nil {
 		r.reportFailure(dep.ID, err, start, log)
 		return "failed"
@@ -132,6 +147,57 @@ func (r *Runner) reportFailure(deployID uint, deployErr error, start time.Time, 
 	}); err != nil {
 		log.Error("failed to report failure", "error", err)
 	}
+}
+
+// reportVerifyWarning is used when the cert was written to disk but the
+// TLS probe didn't conclusively match (ConnRefused, Timeout). We propagate
+// the fingerprint so last_fingerprint updates — next poll will skip the
+// deploy entirely if the service caught up in the meantime; if it didn't,
+// subsequent polls will resurface the problem.
+func (r *Runner) reportVerifyWarning(deployID uint, ve *deployer.VerifyError, start time.Time, log *slog.Logger) string {
+	duration := int(time.Since(start).Milliseconds())
+	log.Warn("deployment completed with verify warning",
+		"verify_result", ve.Result.String(),
+		"verify_detail", ve.Detail,
+		"actual_fingerprints", ve.Actual,
+		"duration_ms", duration,
+	)
+
+	if err := r.client.UpdateDeployStatus(deployID, model.UpdateStatusRequest{
+		Action:       "deploy",
+		Status:       "success",
+		Fingerprint:  ve.Fingerprint,
+		ErrorMessage: ve.Error(),
+		DurationMs:   &duration,
+	}); err != nil {
+		log.Error("failed to report verify warning", "error", err)
+		return "failed"
+	}
+	return "deployed"
+}
+
+// reportVerifyMismatch is used when the service is live but serving a
+// different cert — a real misconfig worth alerting on. We do NOT update
+// last_fingerprint so the deployment stays visibly "failed" until an
+// operator intervenes or config is corrected.
+func (r *Runner) reportVerifyMismatch(deployID uint, ve *deployer.VerifyError, start time.Time, log *slog.Logger) string {
+	duration := int(time.Since(start).Milliseconds())
+	log.Error("deployment fingerprint mismatch",
+		"expected_fingerprint", ve.Fingerprint,
+		"actual_fingerprints", ve.Actual,
+		"verify_detail", ve.Detail,
+		"duration_ms", duration,
+	)
+
+	if err := r.client.UpdateDeployStatus(deployID, model.UpdateStatusRequest{
+		Action:       "deploy",
+		Status:       "failed",
+		ErrorMessage: ve.Error(),
+		DurationMs:   &duration,
+	}); err != nil {
+		log.Error("failed to report verify mismatch", "error", err)
+	}
+	return "failed"
 }
 
 // Register sends agent registration to the server. Called on every startup (upsert).

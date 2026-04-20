@@ -19,9 +19,21 @@ type TargetDetail struct {
 	OS        string `json:"os"`
 	CertPath  string `json:"cert_path"`
 	KeyPath   string `json:"key_path"`
-	Password  string `json:"password,omitempty"`  // JKS/PFX keystore password
-	Alias     string `json:"alias,omitempty"`     // JKS key alias
+	Password  string `json:"password,omitempty"` // JKS/PFX keystore password
+	Alias     string `json:"alias,omitempty"`    // JKS key alias
 	ReloadCmd string `json:"reload_cmd"`
+
+	// ReloadTimeout overrides the per-service default reload timeout (seconds).
+	// 0 = use service-type default from executor.ReloadTimeoutFor.
+	ReloadTimeout int `json:"reload_timeout,omitempty"`
+
+	// Post-deploy TLS fingerprint verification (see internal/verify/tls.go).
+	// When SkipVerify is false (default), agent probes VerifyHost:VerifyPort
+	// after reload and expects the presented cert fingerprint to match.
+	SkipVerify   bool   `json:"skip_verify,omitempty"`
+	VerifyHost   string `json:"verify_host,omitempty"`    // default: 127.0.0.1
+	VerifyPort   int    `json:"verify_port,omitempty"`    // default: 443
+	VerifyTimeoutSeconds int `json:"verify_timeout,omitempty"` // default: service-type dependent
 }
 
 // UpdateStatusRequest mirrors hycert-api UpdateDeployStatusRequest.
