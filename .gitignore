@@ -1,4 +1,6 @@
 bin/
+# testenv/bin/ contains Go source; compiled artifacts are ignored via testenv/bin/.gitignore
+!testenv/bin/
 *.exe
 agent.yaml
 .env

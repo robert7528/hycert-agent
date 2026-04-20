@@ -56,13 +56,21 @@ Expected: `ResultHandshakeFailure` (error-level, v0.3.1+)
 
 ```
 Host:                127.0.0.1
-Port:                8445           # nginx-mismatch: requires client cert
+Port:                8445           # tls-reject helper: closes TCP pre-handshake
 ExpectedFingerprint: $FP_A
 ```
 
-`nginx-mismatch` is configured with `ssl_verify_client on`. Go's default
-TLS client does not present a client cert, so nginx aborts the
-handshake with a TLS alert. This gives us a reliable, deterministic
-path to `ResultHandshakeFailure` without relying on mismatched
-cert/key pairs (which modern nginx validates at startup, causing the
-container to exit and making the port closed rather than listening).
+`tls-reject` is a small Go helper (source: `../bin/tls-reject/main.go`)
+that accepts TCP connections and immediately closes them before any
+TLS bytes are exchanged. From the client's point of view: TCP connect
+succeeds → TLS handshake reads EOF → Go surfaces a handshake error →
+ProbeTLS classifies as `ResultHandshakeFailure`.
+
+Why not use nginx with client-cert requirement? We tried. Modern
+nginx's `ssl_verify_client on` completes the TLS handshake and only
+rejects at the HTTP layer (response 400 "No required SSL certificate
+was sent"). ProbeTLS considers the TLS handshake successful and reads
+the server cert — classification becomes Match, not HandshakeFailure.
+The Go helper bypasses nginx behaviour and forces a real handshake-
+layer failure, which is what real-world cert/key mismatch incidents
+look like to a TLS client.
