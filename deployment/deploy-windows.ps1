@@ -42,12 +42,19 @@ function Invoke-Api {
         Method      = $Method
         ContentType = "application/json"
         Headers     = $Headers
-        ErrorAction = "SilentlyContinue"
+        ErrorAction = "Stop"
     }
     if ($Body) { $params.Body = [System.Text.Encoding]::UTF8.GetBytes($Body) }
     try {
         return Invoke-RestMethod @params
     } catch {
+        $status = ""
+        try {
+            if ($_.Exception.Response -and $_.Exception.Response.StatusCode) {
+                $status = " (HTTP $([int]$_.Exception.Response.StatusCode))"
+            }
+        } catch {}
+        Write-Host "  API error: $Method $Url$status - $($_.Exception.Message)" -ForegroundColor Yellow
         return $null
     }
 }
