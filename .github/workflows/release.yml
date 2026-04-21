@@ -71,7 +71,7 @@ jobs:
           cp ../deployment/deploy-windows.ps1 pkg-windows-amd64/
           cp ../deployment/install.bat pkg-windows-amd64/ 2>/dev/null || true
           cp ../docs/install-windows.md pkg-windows-amd64/README.md
-          zip -r hycert-agent-${VERSION}-windows-amd64.zip pkg-windows-amd64/
+          cd pkg-windows-amd64 && zip -r ../hycert-agent-${VERSION}-windows-amd64.zip . && cd ..
           rm -rf pkg-windows-amd64
 
       - name: Create GitHub Release
