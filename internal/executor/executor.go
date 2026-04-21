@@ -38,7 +38,12 @@ func RunWithTimeout(ctx context.Context, command string, timeout time.Duration) 
 	var cmd *exec.Cmd
 	switch runtime.GOOS {
 	case "windows":
-		cmd = exec.CommandContext(ctx, "powershell", "-NoProfile", "-Command", command)
+		// Force UTF-8 so Go doesn't misread CP950/GBK console code pages as UTF-8.
+		// $OutputEncoding controls downstream pipe; [Console]::OutputEncoding
+		// controls host stdout — both must be set or cmdlet warnings (e.g.
+		// Restart-Service) still come through as mojibake.
+		wrapped := "$OutputEncoding = [Console]::OutputEncoding = [System.Text.Encoding]::UTF8; " + command
+		cmd = exec.CommandContext(ctx, "powershell", "-NoProfile", "-Command", wrapped)
 	default:
 		cmd = exec.CommandContext(ctx, "sh", "-c", command)
 	}
