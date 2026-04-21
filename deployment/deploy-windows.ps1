@@ -5,6 +5,9 @@
 $ErrorActionPreference = "Stop"
 trap { Write-Host "`nERROR: $_" -ForegroundColor Red; pause; exit 1 }
 
+# Windows Server 2016/2019 defaults to TLS 1.0/1.1; hycert-api only accepts TLS 1.2+
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+
 # ─── Configuration ───────────────────────────────────────────────────────────
 
 $AgentDir    = "D:\hycert-agent"
